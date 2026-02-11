@@ -35,13 +35,22 @@
     - Add field validation and constraints (0-100 for stats, stage enum)
     - _Requirements: 6.1, 7.3_
   
-  - [ ] 3.2 Define SQLAlchemy ORM models
+  - [x] 3.2 Define SQLAlchemy ORM models
+
+
+
+
     - Create db/models.py with PetDB class
     - Define table schema with all columns, constraints, and indexes
     - Add check constraints for stat ranges and stage values
     - _Requirements: 6.1, 6.3_
   
-  - [ ] 3.3 Implement database initialization
+  - [x] 3.3 Implement database initialization
+
+
+
+
+
     - Create db/database.py with engine and session management
     - Implement create_tables() function for schema creation
     - Add database connection lifecycle management
