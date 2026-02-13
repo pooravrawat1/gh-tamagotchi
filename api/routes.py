@@ -116,3 +116,109 @@ async def get_pet_widget(user: str = Query(..., description="GitHub username")) 
             status_code=500,
             detail="Internal server error. Please try again later."
         )
+
+
+@router.get("/stats")
+async def get_pet_stats(user: str = Query(..., description="GitHub username")) -> JSONResponse:
+    """
+    Get pet statistics as JSON for a GitHub user.
+    
+    This endpoint returns the raw pet state data in JSON format, including
+    all stats (hunger, happiness, health, energy), level, stage, and timestamps.
+    This allows clients to integrate pet data with other tools or display
+    custom visualizations.
+    
+    Args:
+        user: GitHub username (required query parameter)
+        
+    Returns:
+        JSONResponse with pet state data
+        
+    Raises:
+        HTTPException 400: If username parameter is missing or invalid
+        HTTPException 404: If GitHub user not found
+        HTTPException 429: If GitHub API rate limit exceeded
+        HTTPException 503: If GitHub service is unavailable
+        HTTPException 500: For internal server errors
+        
+    Example:
+        GET /stats?user=octocat
+        
+        Returns JSON:
+        {
+            "username": "octocat",
+            "hunger": 75,
+            "happiness": 80,
+            "health": 90,
+            "energy": 85,
+            "level": 5,
+            "xp": 520,
+            "stage": "baby",
+            "last_updated": "2026-02-13T10:30:00"
+        }
+    """
+    logger.info(f"Received request for pet stats: user={user}")
+    
+    # Validate username parameter
+    if not user or not user.strip():
+        logger.warning("Request received with empty username parameter")
+        raise HTTPException(
+            status_code=400,
+            detail="Username parameter is required and cannot be empty"
+        )
+    
+    try:
+        # Get pet service instance
+        pet_service = get_pet_service()
+        
+        # Get pet stats for the user
+        pet_state = await pet_service.get_pet_stats(user)
+        
+        logger.info(f"Successfully retrieved pet stats for user: {user}")
+        
+        # Convert PetState to dict for JSON response
+        pet_dict = pet_state.model_dump(mode='json')
+        
+        # Return JSON response with appropriate headers
+        return JSONResponse(
+            content=pet_dict,
+            headers={
+                "Cache-Control": "public, max-age=300",  # Cache for 5 minutes
+                "Content-Type": "application/json; charset=utf-8"
+            }
+        )
+        
+    except GitHubUserNotFoundError as e:
+        logger.warning(f"GitHub user not found: {user}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"GitHub user '{user}' not found"
+        )
+        
+    except GitHubRateLimitError as e:
+        logger.error(f"GitHub API rate limit exceeded for user: {user}")
+        raise HTTPException(
+            status_code=429,
+            detail="GitHub API rate limit exceeded. Please try again later."
+        )
+        
+    except GitHubTimeoutError as e:
+        logger.error(f"GitHub API timeout for user: {user}")
+        raise HTTPException(
+            status_code=503,
+            detail="GitHub service is currently unavailable. Please try again later."
+        )
+        
+    except GitHubServiceError as e:
+        logger.error(f"GitHub service error for user {user}: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail="Unable to fetch GitHub data. Please try again later."
+        )
+        
+    except Exception as e:
+        logger.error(f"Unexpected error retrieving stats for user {user}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error. Please try again later."
+        )
