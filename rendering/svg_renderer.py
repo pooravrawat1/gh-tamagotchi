@@ -60,8 +60,8 @@ class SVGRenderer:
         health_width = (pet.health / 100) * self.STAT_BAR_WIDTH
         energy_width = (pet.energy / 100) * self.STAT_BAR_WIDTH
         
-        # Get pet sprite and mood message (to be implemented in subtasks)
-        pet_sprite = self._get_pet_sprite_placeholder(pet.stage)
+        # Get pet sprite and mood message
+        pet_sprite = self.get_pet_sprite(pet.stage)
         mood_message = self._get_mood_message_placeholder(pet)
         
         # Build SVG
@@ -119,21 +119,127 @@ class SVGRenderer:
         
         return svg
     
-    def _get_pet_sprite_placeholder(self, stage: str) -> str:
+    def get_pet_sprite(self, stage: str) -> str:
         """
-        Placeholder for pet sprite generation.
+        Generate pet sprite based on evolution stage.
         
-        This will be implemented in task 8.2.
-        For now, returns a simple circle as a placeholder.
+        Creates simple geometric sprites for each stage:
+        - egg: oval shape
+        - baby: circle with eyes
+        - teen: circle with eyes and mouth
+        - adult: detailed shape with features
+        - legendary: shape with special effects
         
         Args:
-            stage: The evolution stage of the pet
+            stage: The evolution stage of the pet (egg, baby, teen, adult, legendary)
             
         Returns:
             SVG markup for the pet sprite
         """
-        # Simple placeholder circle
-        return '<circle cx="0" cy="0" r="40" fill="#999" opacity="0.3"/>'
+        # Normalize stage string (handle both string and enum values)
+        stage_str = stage.value if hasattr(stage, 'value') else str(stage).lower()
+        
+        if stage_str == 'egg':
+            # Oval shape for egg
+            return '''
+    <ellipse cx="0" cy="0" rx="35" ry="50" fill="#e8e8e8" stroke="#999" stroke-width="2"/>
+    <ellipse cx="0" cy="0" rx="30" ry="45" fill="#f5f5f5" opacity="0.6"/>
+    <ellipse cx="-10" cy="-15" rx="8" ry="12" fill="#fff" opacity="0.8"/>
+'''
+        
+        elif stage_str == 'baby':
+            # Circle with eyes
+            return '''
+    <circle cx="0" cy="0" r="45" fill="#ffd1dc" stroke="#ff69b4" stroke-width="2"/>
+    <circle cx="0" cy="0" r="40" fill="#ffe4e9" opacity="0.7"/>
+    <!-- Eyes -->
+    <circle cx="-15" cy="-5" r="6" fill="#333"/>
+    <circle cx="15" cy="-5" r="6" fill="#333"/>
+    <circle cx="-13" cy="-7" r="2" fill="#fff"/>
+    <circle cx="17" cy="-7" r="2" fill="#fff"/>
+    <!-- Blush -->
+    <circle cx="-25" cy="8" r="5" fill="#ffb6c1" opacity="0.6"/>
+    <circle cx="25" cy="8" r="5" fill="#ffb6c1" opacity="0.6"/>
+'''
+        
+        elif stage_str == 'teen':
+            # Circle with eyes and mouth
+            return '''
+    <circle cx="0" cy="0" r="48" fill="#87ceeb" stroke="#4682b4" stroke-width="2"/>
+    <circle cx="0" cy="0" r="43" fill="#b0e0e6" opacity="0.7"/>
+    <!-- Eyes -->
+    <ellipse cx="-15" cy="-8" rx="7" ry="9" fill="#333"/>
+    <ellipse cx="15" cy="-8" rx="7" ry="9" fill="#333"/>
+    <circle cx="-13" cy="-10" r="3" fill="#fff"/>
+    <circle cx="17" cy="-10" r="3" fill="#fff"/>
+    <!-- Mouth -->
+    <path d="M -15 10 Q 0 20 15 10" stroke="#333" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <!-- Cheeks -->
+    <circle cx="-28" cy="5" r="6" fill="#ff9999" opacity="0.5"/>
+    <circle cx="28" cy="5" r="6" fill="#ff9999" opacity="0.5"/>
+'''
+        
+        elif stage_str == 'adult':
+            # Detailed shape with features
+            return '''
+    <!-- Body -->
+    <ellipse cx="0" cy="5" rx="50" ry="55" fill="#9370db" stroke="#6a5acd" stroke-width="2"/>
+    <ellipse cx="0" cy="5" rx="45" ry="50" fill="#b19cd9" opacity="0.6"/>
+    <!-- Head -->
+    <circle cx="0" cy="-20" r="35" fill="#9370db" stroke="#6a5acd" stroke-width="2"/>
+    <circle cx="0" cy="-20" r="30" fill="#b19cd9" opacity="0.6"/>
+    <!-- Eyes -->
+    <ellipse cx="-12" cy="-25" rx="8" ry="10" fill="#fff" stroke="#333" stroke-width="1"/>
+    <ellipse cx="12" cy="-25" rx="8" ry="10" fill="#fff" stroke="#333" stroke-width="1"/>
+    <circle cx="-12" cy="-23" r="5" fill="#333"/>
+    <circle cx="12" cy="-23" r="5" fill="#333"/>
+    <circle cx="-10" cy="-25" r="2" fill="#fff"/>
+    <circle cx="14" cy="-25" r="2" fill="#fff"/>
+    <!-- Mouth -->
+    <path d="M -12 -10 Q 0 -5 12 -10" stroke="#333" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <!-- Arms -->
+    <ellipse cx="-45" cy="10" rx="12" ry="25" fill="#9370db" stroke="#6a5acd" stroke-width="2"/>
+    <ellipse cx="45" cy="10" rx="12" ry="25" fill="#9370db" stroke="#6a5acd" stroke-width="2"/>
+'''
+        
+        elif stage_str == 'legendary':
+            # Shape with special effects (glow, stars)
+            return '''
+    <!-- Glow effect -->
+    <circle cx="0" cy="0" r="70" fill="#ffd700" opacity="0.2"/>
+    <circle cx="0" cy="0" r="60" fill="#ffd700" opacity="0.3"/>
+    <!-- Body -->
+    <ellipse cx="0" cy="5" rx="50" ry="55" fill="#ff6347" stroke="#ff4500" stroke-width="2"/>
+    <ellipse cx="0" cy="5" rx="45" ry="50" fill="#ff7f50" opacity="0.7"/>
+    <!-- Head -->
+    <circle cx="0" cy="-20" r="35" fill="#ff6347" stroke="#ff4500" stroke-width="2"/>
+    <circle cx="0" cy="-20" r="30" fill="#ff7f50" opacity="0.7"/>
+    <!-- Eyes with sparkle -->
+    <ellipse cx="-12" cy="-25" rx="8" ry="10" fill="#fff" stroke="#333" stroke-width="1"/>
+    <ellipse cx="12" cy="-25" rx="8" ry="10" fill="#fff" stroke="#333" stroke-width="1"/>
+    <circle cx="-12" cy="-23" r="5" fill="#ffd700"/>
+    <circle cx="12" cy="-23" r="5" fill="#ffd700"/>
+    <circle cx="-10" cy="-25" r="2" fill="#fff"/>
+    <circle cx="14" cy="-25" r="2" fill="#fff"/>
+    <!-- Smile -->
+    <path d="M -15 -8 Q 0 -2 15 -8" stroke="#333" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <!-- Crown -->
+    <path d="M -20 -50 L -15 -40 L -10 -48 L 0 -38 L 10 -48 L 15 -40 L 20 -50 L 20 -52 L -20 -52 Z" fill="#ffd700" stroke="#ffaa00" stroke-width="1"/>
+    <!-- Stars -->
+    <path d="M -55 -30 L -52 -25 L -47 -25 L -51 -21 L -49 -16 L -55 -20 L -61 -16 L -59 -21 L -63 -25 L -58 -25 Z" fill="#ffd700" opacity="0.8"/>
+    <path d="M 55 -10 L 58 -5 L 63 -5 L 59 -1 L 61 4 L 55 0 L 49 4 L 51 -1 L 47 -5 L 52 -5 Z" fill="#ffd700" opacity="0.8"/>
+    <path d="M 0 -65 L 2 -61 L 6 -61 L 3 -58 L 4 -54 L 0 -57 L -4 -54 L -3 -58 L -6 -61 L -2 -61 Z" fill="#ffd700" opacity="0.9"/>
+    <!-- Arms -->
+    <ellipse cx="-45" cy="10" rx="12" ry="25" fill="#ff6347" stroke="#ff4500" stroke-width="2"/>
+    <ellipse cx="45" cy="10" rx="12" ry="25" fill="#ff6347" stroke="#ff4500" stroke-width="2"/>
+'''
+        
+        else:
+            # Default fallback (egg)
+            return '''
+    <ellipse cx="0" cy="0" rx="35" ry="50" fill="#e8e8e8" stroke="#999" stroke-width="2"/>
+    <ellipse cx="0" cy="0" rx="30" ry="45" fill="#f5f5f5" opacity="0.6"/>
+'''
     
     def _get_mood_message_placeholder(self, pet: PetState) -> str:
         """

@@ -237,7 +237,14 @@
     - Implement render_pet(pet) method that returns SVG string
     - _Requirements: 1.2, 1.4_
   
-  - [ ] 8.2 Implement pet sprite generation
+  - [x] 8.2 Implement pet sprite generation
+
+
+
+
+
+
+
     - Implement get_pet_sprite(stage) method
     - Create simple geometric sprites for each stage (egg: oval, baby: circle with eyes, teen: circle with eyes and mouth, adult: detailed shape, legendary: shape with effects)
     - Return SVG path/shape elements as strings
