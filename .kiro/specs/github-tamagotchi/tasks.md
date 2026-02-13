@@ -56,7 +56,7 @@
     - Add database connection lifecycle management
     - _Requirements: 6.2, 6.3_
 
-- [ ] 4. Implement persistence layer
+- [x] 4. Implement persistence layer
   - [x] 4.1 Create pet repository
 
 
@@ -78,13 +78,23 @@
     - _Requirements: 6.1, 6.4_
 
 - [ ] 5. Implement GitHub data service
-  - [ ] 5.1 Create GitHub API client
+  - [x] 5.1 Create GitHub API client
+
+
+
+
+
     - Create services/github_service.py with GitHubService class
     - Implement async HTTP client initialization with authentication headers
     - Implement validate_user_exists(username) method using REST API
     - _Requirements: 5.2, 10.1, 10.2, 10.5_
   
-  - [ ] 5.2 Implement contribution data fetching
+  - [x] 5.2 Implement contribution data fetching
+
+
+
+
+
     - Implement get_contribution_data(username, days) method using GraphQL API
     - Create GraphQL query for contribution calendar
     - Parse GraphQL response into ContributionData model
