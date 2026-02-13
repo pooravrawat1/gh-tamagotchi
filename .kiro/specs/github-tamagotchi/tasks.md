@@ -154,14 +154,24 @@
     - Clamp all stats after decay
     - _Requirements: 3.1, 3.2, 3.4_
   
-  - [ ] 6.3 Implement activity boost calculations
+  - [x] 6.3 Implement activity boost calculations
+
+
+
+
+
     - Implement apply_activity_boosts(pet, contribution_data, recent_activity) method
     - Check for commits today and apply hunger/happiness boosts
     - Check for merged PRs and apply happiness/XP boosts
     - Clamp all stats after boosts
     - _Requirements: 2.1, 2.2, 2.4, 2.5_
   
-  - [ ] 6.4 Implement inactivity penalties
+  - [x] 6.4 Implement inactivity penalties
+
+
+
+
+
     - Implement apply_inactivity_penalties(pet, days_inactive) method
     - Calculate days since last activity from contribution data
     - Apply penalties if inactive > 3 days
