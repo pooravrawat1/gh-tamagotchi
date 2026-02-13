@@ -293,7 +293,7 @@
     - Validate SVG output is well-formed XML
     - _Requirements: 1.2, 1.4_
 
-- [ ] 9. Implement pet service orchestration
+- [x] 9. Implement pet service orchestration
   - [x] 9.1 Create pet service
 
 
@@ -344,7 +344,7 @@
     - Test error handling paths
     - _Requirements: 1.5, 5.1_
 
-- [ ] 10. Implement API layer
+- [x] 10. Implement API layer
   - [x] 10.1 Create FastAPI application
 
 
@@ -416,7 +416,12 @@
     - _Requirements: 1.1, 1.5, 8.5, 9.5_
 
 - [ ] 11. Create deployment configuration
-  - [ ] 11.1 Create Docker configuration
+  - [x] 11.1 Create Docker configuration
+
+
+
+
+
     - Create Dockerfile with Python 3.11 base image
     - Copy requirements and install dependencies
     - Copy application code
@@ -424,14 +429,22 @@
     - Set CMD to run uvicorn
     - _Requirements: 8.1, 8.2_
   
-  - [ ] 11.2 Create deployment files
+  - [x] 11.2 Create deployment files
+
+
+
+
     - Create .dockerignore file
     - Create README.md with setup and deployment instructions
     - Document environment variables needed
     - Add example curl commands for testing endpoints
     - _Requirements: 8.2, 8.3_
   
-  - [ ] 11.3 Create example environment file
+  - [x] 11.3 Create example environment file
+
+
+
+
     - Create .env.example with all required variables
     - Add comments explaining each variable
     - Include placeholder values
