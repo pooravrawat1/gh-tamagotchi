@@ -1,7 +1,7 @@
 """
 Game engine for GitHub Tamagotchi pet stats and evolution logic.
 """
-from datetime import date
+from datetime import date, datetime
 from typing import List
 from models.pet_models import PetState
 from models.github_models import ContributionData, ActivityEvent
@@ -212,3 +212,97 @@ class GameEngine:
             'level': new_level,
             'stage': new_stage
         })
+    
+    def update_pet(
+        self,
+        pet: PetState,
+        contribution_data: ContributionData,
+        recent_activity: List[ActivityEvent],
+        current_time: datetime
+    ) -> PetState:
+        """
+        Main orchestration method that updates pet state based on time and activity.
+        
+        This method coordinates all pet stat updates by:
+        1. Calculating time elapsed since last update
+        2. Applying time-based stat decay
+        3. Applying activity boosts from GitHub data
+        4. Applying inactivity penalties if applicable
+        5. Calculating level and evolution stage
+        6. Updating the last_updated timestamp
+        
+        Args:
+            pet: Current pet state
+            contribution_data: GitHub contribution data
+            recent_activity: List of recent GitHub activity events
+            current_time: Current timestamp for the update
+            
+        Returns:
+            Updated pet state with all calculations applied
+        """
+        # Calculate hours elapsed since last update
+        time_delta = current_time - pet.last_updated
+        hours_elapsed = time_delta.total_seconds() / 3600.0
+        
+        # Apply time decay based on elapsed time
+        pet = self.calculate_time_decay(pet, hours_elapsed)
+        
+        # Apply activity boosts from GitHub data
+        pet = self.apply_activity_boosts(pet, contribution_data, recent_activity)
+        
+        # Calculate days since last activity for inactivity penalties
+        days_inactive = self._calculate_days_inactive(contribution_data, current_time)
+        
+        # Apply inactivity penalties if applicable
+        pet = self.apply_inactivity_penalties(pet, days_inactive)
+        
+        # Calculate level and evolution stage based on XP
+        pet = self.calculate_level_and_stage(pet)
+        
+        # Update the last_updated timestamp
+        pet = pet.model_copy(update={'last_updated': current_time})
+        
+        return pet
+    
+    def _calculate_days_inactive(
+        self,
+        contribution_data: ContributionData,
+        current_time: datetime
+    ) -> int:
+        """
+        Calculate the number of days since the last GitHub activity.
+        
+        Args:
+            contribution_data: GitHub contribution data
+            current_time: Current timestamp
+            
+        Returns:
+            Number of days since last activity (0 if active today)
+        """
+        if not contribution_data.contribution_days:
+            # No contribution data available, assume inactive
+            return 999  # Large number to trigger penalties
+        
+        # Find the most recent day with contributions
+        today = current_time.date()
+        
+        # Check if there are contributions today
+        for day in contribution_data.contribution_days:
+            if day.date == today and day.count > 0:
+                return 0
+        
+        # Find the most recent day with contributions
+        most_recent_activity = None
+        for day in contribution_data.contribution_days:
+            if day.count > 0:
+                if most_recent_activity is None or day.date > most_recent_activity:
+                    most_recent_activity = day.date
+        
+        # If no activity found in the contribution data, return large number
+        if most_recent_activity is None:
+            return 999
+        
+        # Calculate days between most recent activity and today
+        days_inactive = (today - most_recent_activity).days
+        
+        return days_inactive
