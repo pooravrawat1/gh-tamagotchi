@@ -486,7 +486,16 @@
     - Ensure no sensitive data (tokens) in logs
     - _Requirements: 7.3, 10.5_
   
-  - [ ]* 12.4 Run end-to-end manual testing
+  - [x] 12.4 Run end-to-end manual testing
+
+
+
+
+
+
+
+
+
     - Start application locally
     - Test /pet endpoint with real GitHub username
     - Test /stats endpoint
