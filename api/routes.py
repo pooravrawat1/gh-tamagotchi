@@ -1,0 +1,118 @@
+"""
+API route handlers for GitHub Tamagotchi endpoints.
+
+This module defines all HTTP endpoints for the pet widget service,
+including pet SVG generation, stats retrieval, and health checks.
+"""
+
+import logging
+from fastapi import APIRouter, Query, HTTPException, Response
+from fastapi.responses import JSONResponse
+
+from services.pet_service import PetService
+from services.github_exceptions import (
+    GitHubUserNotFoundError,
+    GitHubRateLimitError,
+    GitHubTimeoutError,
+    GitHubServiceError
+)
+from api.dependencies import get_pet_service
+
+logger = logging.getLogger(__name__)
+
+# Create router for pet-related endpoints
+router = APIRouter()
+
+
+@router.get("/pet")
+async def get_pet_widget(user: str = Query(..., description="GitHub username")) -> Response:
+    """
+    Generate and return SVG pet widget for a GitHub user.
+    
+    This endpoint generates a dynamic SVG image representing a virtual pet
+    whose stats and appearance are driven by the user's GitHub activity.
+    The SVG can be embedded in GitHub README files using standard markdown
+    image syntax.
+    
+    Args:
+        user: GitHub username (required query parameter)
+        
+    Returns:
+        Response with SVG content and image/svg+xml content-type
+        
+    Raises:
+        HTTPException 400: If username parameter is missing or invalid
+        HTTPException 404: If GitHub user not found
+        HTTPException 429: If GitHub API rate limit exceeded
+        HTTPException 503: If GitHub service is unavailable
+        HTTPException 500: For internal server errors
+        
+    Example:
+        GET /pet?user=octocat
+        
+        Returns SVG image that can be embedded as:
+        ![My Pet](https://your-domain.com/pet?user=octocat)
+    """
+    logger.info(f"Received request for pet widget: user={user}")
+    
+    # Validate username parameter
+    if not user or not user.strip():
+        logger.warning("Request received with empty username parameter")
+        raise HTTPException(
+            status_code=400,
+            detail="Username parameter is required and cannot be empty"
+        )
+    
+    try:
+        # Get pet service instance
+        pet_service = get_pet_service()
+        
+        # Generate SVG for the user
+        svg_content = await pet_service.get_pet_svg(user)
+        
+        logger.info(f"Successfully generated pet SVG for user: {user}")
+        
+        # Return SVG with appropriate content type
+        return Response(
+            content=svg_content,
+            media_type="image/svg+xml",
+            headers={
+                "Cache-Control": "public, max-age=300",  # Cache for 5 minutes
+                "Content-Type": "image/svg+xml; charset=utf-8"
+            }
+        )
+        
+    except GitHubUserNotFoundError as e:
+        logger.warning(f"GitHub user not found: {user}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"GitHub user '{user}' not found"
+        )
+        
+    except GitHubRateLimitError as e:
+        logger.error(f"GitHub API rate limit exceeded for user: {user}")
+        raise HTTPException(
+            status_code=429,
+            detail="GitHub API rate limit exceeded. Please try again later."
+        )
+        
+    except GitHubTimeoutError as e:
+        logger.error(f"GitHub API timeout for user: {user}")
+        raise HTTPException(
+            status_code=503,
+            detail="GitHub service is currently unavailable. Please try again later."
+        )
+        
+    except GitHubServiceError as e:
+        logger.error(f"GitHub service error for user {user}: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail="Unable to fetch GitHub data. Please try again later."
+        )
+        
+    except Exception as e:
+        logger.error(f"Unexpected error generating pet for user {user}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error. Please try again later."
+        )
