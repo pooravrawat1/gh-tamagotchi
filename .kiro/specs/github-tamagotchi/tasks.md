@@ -57,7 +57,12 @@
     - _Requirements: 6.2, 6.3_
 
 - [ ] 4. Implement persistence layer
-  - [ ] 4.1 Create pet repository
+  - [x] 4.1 Create pet repository
+
+
+
+
+
     - Create db/repository.py with PetRepository class
     - Implement get_pet(username) method
     - Implement create_pet(username) method with default values
