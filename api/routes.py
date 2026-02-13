@@ -17,6 +17,7 @@ from services.github_exceptions import (
     GitHubServiceError
 )
 from api.dependencies import get_pet_service
+from db.database import check_db_health
 
 logger = logging.getLogger(__name__)
 
@@ -221,4 +222,65 @@ async def get_pet_stats(user: str = Query(..., description="GitHub username")) -
         raise HTTPException(
             status_code=500,
             detail="Internal server error. Please try again later."
+        )
+
+
+@router.get("/health")
+async def health_check() -> JSONResponse:
+    """
+    Health check endpoint for deployment platforms.
+    
+    This endpoint verifies that the application and its dependencies are
+    functioning correctly. It checks database connectivity and returns
+    appropriate status codes for monitoring and orchestration systems.
+    
+    Returns:
+        JSONResponse with status information
+        - 200 if healthy: {"status": "healthy"}
+        - 503 if unhealthy: {"status": "unhealthy", "error": "error details"}
+        
+    Example:
+        GET /health
+        
+        Success response (200):
+        {
+            "status": "healthy"
+        }
+        
+        Failure response (503):
+        {
+            "status": "unhealthy",
+            "error": "Database connection failed"
+        }
+    """
+    logger.debug("Health check requested")
+    
+    try:
+        # Check database connectivity
+        db_healthy = await check_db_health()
+        
+        if not db_healthy:
+            logger.error("Health check failed: Database connection check failed")
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "status": "unhealthy",
+                    "error": "Database connection failed"
+                }
+            )
+        
+        logger.debug("Health check passed")
+        return JSONResponse(
+            status_code=200,
+            content={"status": "healthy"}
+        )
+        
+    except Exception as e:
+        logger.error(f"Health check failed with exception: {e}", exc_info=True)
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "unhealthy",
+                "error": str(e)
+            }
         )
