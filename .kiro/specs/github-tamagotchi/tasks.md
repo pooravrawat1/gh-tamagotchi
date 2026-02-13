@@ -177,7 +177,12 @@
     - Apply penalties if inactive > 3 days
     - _Requirements: 3.3_
   
-  - [ ] 6.5 Implement level and evolution logic
+  - [x] 6.5 Implement level and evolution logic
+
+
+
+
+
     - Implement calculate_level_and_stage(pet) method
     - Calculate level from XP (100 XP per level)
     - Map level to evolution stage (egg, baby, teen, adult, legendary)

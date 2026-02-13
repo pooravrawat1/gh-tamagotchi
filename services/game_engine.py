@@ -172,3 +172,43 @@ class GameEngine:
             'happiness': self.clamp_stat(new_happiness),
             'energy': self.clamp_stat(new_energy)
         })
+    
+    def calculate_level_and_stage(self, pet: PetState) -> PetState:
+        """
+        Calculate level from XP and determine evolution stage.
+        
+        Level is calculated as XP // 100 (100 XP per level).
+        
+        Evolution stages are mapped based on level:
+        - Level 0-2: egg
+        - Level 3-6: baby
+        - Level 7-12: teen
+        - Level 13-20: adult
+        - Level 21+: legendary
+        
+        Args:
+            pet: Current pet state
+            
+        Returns:
+            Updated pet state with level and stage fields updated
+        """
+        # Calculate level from XP (100 XP per level)
+        new_level = pet.xp // 100
+        
+        # Determine evolution stage based on level
+        if new_level <= 2:
+            new_stage = "egg"
+        elif new_level <= 6:
+            new_stage = "baby"
+        elif new_level <= 12:
+            new_stage = "teen"
+        elif new_level <= 20:
+            new_stage = "adult"
+        else:  # level 21+
+            new_stage = "legendary"
+        
+        # Update pet's level and stage
+        return pet.model_copy(update={
+            'level': new_level,
+            'stage': new_stage
+        })
