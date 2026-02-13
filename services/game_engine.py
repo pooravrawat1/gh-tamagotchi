@@ -40,3 +40,36 @@ class GameEngine:
             Clamped integer value within [min_value, max_value]
         """
         return int(max(min_value, min(max_value, value)))
+    
+    def calculate_time_decay(self, pet: PetState, hours_elapsed: float) -> PetState:
+        """
+        Apply time-based stat decay to the pet.
+        
+        Stats decay at different rates per hour:
+        - Hunger decreases by HUNGER_DECAY_RATE per hour
+        - Happiness decreases by HAPPINESS_DECAY_RATE per hour
+        - Energy decreases by ENERGY_DECAY_RATE per hour
+        - Health decreases by HEALTH_DECAY_RATE per hour
+        
+        All stats are clamped to [0, 100] after decay.
+        
+        Args:
+            pet: Current pet state
+            hours_elapsed: Number of hours since last update
+            
+        Returns:
+            Updated pet state with decayed stats
+        """
+        # Calculate new stat values after decay
+        new_hunger = pet.hunger - (self.HUNGER_DECAY_RATE * hours_elapsed)
+        new_happiness = pet.happiness - (self.HAPPINESS_DECAY_RATE * hours_elapsed)
+        new_energy = pet.energy - (self.ENERGY_DECAY_RATE * hours_elapsed)
+        new_health = pet.health - (self.HEALTH_DECAY_RATE * hours_elapsed)
+        
+        # Clamp all stats to valid range [0, 100]
+        return pet.model_copy(update={
+            'hunger': self.clamp_stat(new_hunger),
+            'happiness': self.clamp_stat(new_happiness),
+            'energy': self.clamp_stat(new_energy),
+            'health': self.clamp_stat(new_health)
+        })

@@ -142,7 +142,12 @@
     - Implement helper method to clamp stats to [0, 100] range
     - _Requirements: 2.3, 3.5_
   
-  - [ ] 6.2 Implement time decay calculations
+  - [x] 6.2 Implement time decay calculations
+
+
+
+
+
     - Implement calculate_time_decay(pet, hours_elapsed) method
     - Apply decay rates to hunger, happiness, energy, health
     - Calculate hours elapsed from last_updated timestamp
