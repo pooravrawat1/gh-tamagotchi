@@ -20,6 +20,7 @@ from api.dependencies import (
     get_pet_service
 )
 from api.routes import router as pet_router
+from api.error_handlers import register_error_handlers
 
 # Configure logging
 logging.basicConfig(
@@ -43,6 +44,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Register error handlers
+register_error_handlers(app)
 
 # Include routers
 app.include_router(pet_router)
