@@ -294,18 +294,30 @@
     - _Requirements: 1.2, 1.4_
 
 - [ ] 9. Implement pet service orchestration
-  - [ ] 9.1 Create pet service
+  - [x] 9.1 Create pet service
+
+
+
+
     - Create services/pet_service.py with PetService class
     - Initialize with dependencies (GitHubService, GameEngine, PetRepository, SVGRenderer, CacheService)
     - _Requirements: 7.1_
   
-  - [ ] 9.2 Implement cache check logic
+  - [x] 9.2 Implement cache check logic
+
+
+
+
     - Implement should_update_from_github(pet) method
     - Check if last_updated is older than cache TTL (5 minutes)
     - Return boolean indicating if GitHub fetch is needed
     - _Requirements: 5.1, 5.3_
   
-  - [ ] 9.3 Implement main pet SVG generation
+  - [x] 9.3 Implement main pet SVG generation
+
+
+
+
     - Implement get_pet_svg(username) method
     - Check cache for GitHub data
     - If cache miss: validate user exists, fetch contribution data, fetch recent activity, update cache
@@ -316,7 +328,11 @@
     - Return SVG string
     - _Requirements: 1.1, 1.5, 5.1, 5.2, 5.3, 6.5_
   
-  - [ ] 9.4 Implement pet stats JSON generation
+  - [x] 9.4 Implement pet stats JSON generation
+
+
+
+
     - Implement get_pet_stats(username) method
     - Use same logic as get_pet_svg but return PetState instead of SVG
     - _Requirements: 9.2, 9.4_
