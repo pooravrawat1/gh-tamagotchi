@@ -50,19 +50,19 @@ jobs:
       continue-on-error: true
     
     - name: Run tests with pytest
+      env:
+        DATABASE_URL: "sqlite:///:memory:"
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         pytest tests/ -v --cov=. --cov-report=xml --cov-report=term-missing
-      env:
-        DATABASE_URL: sqlite:///:memory:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     
     - name: Upload coverage reports
       uses: codecov/codecov-action@v4
+      continue-on-error: true
       with:
         file: ./coverage.xml
         flags: unittests
         name: codecov-umbrella
-      continue-on-error: true
 
   security-check:
     runs-on: ubuntu-latest
