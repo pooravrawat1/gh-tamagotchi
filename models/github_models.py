@@ -5,14 +5,14 @@ This module defines the Pydantic models for GitHub API data
 including contribution data and activity events.
 """
 
-from datetime import date, datetime
+from datetime import date as date_type, datetime
 from typing import List, Dict, Any
 from pydantic import BaseModel, Field
 
 
 class ContributionDay(BaseModel):
     """Represents a single day's contribution data."""
-    date: date = Field(description="Date of contributions")
+    date: date_type = Field(description="Date of contributions")
     count: int = Field(ge=0, description="Number of contributions on this day")
 
 
