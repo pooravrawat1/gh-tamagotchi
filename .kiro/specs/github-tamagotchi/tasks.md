@@ -100,7 +100,11 @@
     - Parse GraphQL response into ContributionData model
     - _Requirements: 5.2, 10.2_
   
-  - [ ] 5.3 Implement activity event fetching
+  - [x] 5.3 Implement activity event fetching
+
+
+
+
     - Implement get_recent_activity(username, limit) method using REST API
     - Fetch events from /users/{username}/events endpoint
     - Parse events into ActivityEvent models

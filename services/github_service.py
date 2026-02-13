@@ -254,3 +254,114 @@ class GitHubService:
         except Exception as e:
             logger.error(f"Unexpected error fetching contributions for '{username}': {e}")
             raise
+    
+    async def get_recent_activity(self, username: str, limit: int = 30) -> List[ActivityEvent]:
+        """
+        Fetch recent activity events via GitHub REST API.
+        
+        Retrieves the user's recent events from the GitHub REST API and filters
+        for relevant event types (PushEvent, PullRequestEvent).
+        
+        Args:
+            username: GitHub username to fetch activity for
+            limit: Maximum number of events to fetch (default: 30)
+            
+        Returns:
+            List of ActivityEvent objects containing relevant GitHub events
+            
+        Raises:
+            httpx.HTTPError: If there's a network or HTTP error
+            ValueError: If the response is invalid or missing expected data
+        """
+        if not username or not username.strip():
+            logger.warning("Empty username provided to get_recent_activity")
+            raise ValueError("Username cannot be empty")
+        
+        username = username.strip()
+        
+        # Relevant event types for pet activity
+        relevant_event_types = {"PushEvent", "PullRequestEvent"}
+        
+        try:
+            client = await self._get_client()
+            url = f"{self.rest_url}/users/{username}/events"
+            
+            # Fetch events with pagination
+            params = {"per_page": min(limit, 100)}  # GitHub API max is 100 per page
+            
+            response = await client.get(url, headers=self.headers, params=params)
+            response.raise_for_status()
+            
+            events_data = response.json()
+            
+            if not isinstance(events_data, list):
+                logger.warning(f"Unexpected response format for events from '{username}'")
+                raise ValueError("Expected list of events from GitHub API")
+            
+            # Parse and filter events
+            activity_events = []
+            for event_data in events_data[:limit]:
+                event_type = event_data.get("type")
+                
+                # Only include relevant event types
+                if event_type not in relevant_event_types:
+                    continue
+                
+                try:
+                    # Parse the event
+                    created_at_str = event_data.get("created_at")
+                    if not created_at_str:
+                        logger.debug(f"Event missing created_at timestamp for '{username}'")
+                        continue
+                    
+                    # Parse ISO format datetime
+                    created_at = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
+                    
+                    # Extract relevant metadata based on event type
+                    metadata = {}
+                    
+                    if event_type == "PushEvent":
+                        payload = event_data.get("payload", {})
+                        metadata["commits"] = payload.get("size", 0)
+                        metadata["ref"] = payload.get("ref", "")
+                    
+                    elif event_type == "PullRequestEvent":
+                        payload = event_data.get("payload", {})
+                        metadata["action"] = payload.get("action", "")
+                        pr_data = payload.get("pull_request", {})
+                        metadata["merged"] = pr_data.get("merged", False)
+                        metadata["title"] = pr_data.get("title", "")
+                    
+                    activity_events.append(
+                        ActivityEvent(
+                            type=event_type,
+                            created_at=created_at,
+                            metadata=metadata,
+                        )
+                    )
+                
+                except (KeyError, ValueError, TypeError) as e:
+                    logger.debug(f"Error parsing event for '{username}': {e}")
+                    continue
+            
+            logger.debug(
+                f"Fetched {len(activity_events)} relevant activity events for '{username}' "
+                f"(filtered from {len(events_data)} total events)"
+            )
+            
+            return activity_events
+            
+        except httpx.HTTPStatusError as e:
+            logger.error(
+                f"HTTP error fetching activity for '{username}': {e.response.status_code}"
+            )
+            raise
+        except httpx.RequestError as e:
+            logger.error(f"Request error fetching activity for '{username}': {e}")
+            raise
+        except (ValueError, TypeError) as e:
+            logger.error(f"Error parsing activity data for '{username}': {e}")
+            raise ValueError(f"Failed to parse activity data: {e}")
+        except Exception as e:
+            logger.error(f"Unexpected error fetching activity for '{username}': {e}")
+            raise
