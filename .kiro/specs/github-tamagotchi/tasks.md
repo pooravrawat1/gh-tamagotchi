@@ -77,7 +77,7 @@
     - Test constraint validation
     - _Requirements: 6.1, 6.4_
 
-- [ ] 5. Implement GitHub data service
+- [x] 5. Implement GitHub data service
   - [x] 5.1 Create GitHub API client
 
 
@@ -131,40 +131,70 @@
     - _Requirements: 10.2, 10.3_
 
 - [ ] 6. Implement pet game engine
-  - [ ] 6.1 Create game engine core
+  - [x] 6.1 Create game engine core
+
+
+
+
+
     - Create services/game_engine.py with GameEngine class
     - Define stat decay rates and activity boost constants
     - Implement helper method to clamp stats to [0, 100] range
     - _Requirements: 2.3, 3.5_
   
-  - [ ] 6.2 Implement time decay calculations
+  - [x] 6.2 Implement time decay calculations
+
+
+
+
+
     - Implement calculate_time_decay(pet, hours_elapsed) method
     - Apply decay rates to hunger, happiness, energy, health
     - Calculate hours elapsed from last_updated timestamp
     - Clamp all stats after decay
     - _Requirements: 3.1, 3.2, 3.4_
   
-  - [ ] 6.3 Implement activity boost calculations
+  - [x] 6.3 Implement activity boost calculations
+
+
+
+
+
     - Implement apply_activity_boosts(pet, contribution_data, recent_activity) method
     - Check for commits today and apply hunger/happiness boosts
     - Check for merged PRs and apply happiness/XP boosts
     - Clamp all stats after boosts
     - _Requirements: 2.1, 2.2, 2.4, 2.5_
   
-  - [ ] 6.4 Implement inactivity penalties
+  - [x] 6.4 Implement inactivity penalties
+
+
+
+
+
     - Implement apply_inactivity_penalties(pet, days_inactive) method
     - Calculate days since last activity from contribution data
     - Apply penalties if inactive > 3 days
     - _Requirements: 3.3_
   
-  - [ ] 6.5 Implement level and evolution logic
+  - [x] 6.5 Implement level and evolution logic
+
+
+
+
+
     - Implement calculate_level_and_stage(pet) method
     - Calculate level from XP (100 XP per level)
     - Map level to evolution stage (egg, baby, teen, adult, legendary)
     - Update pet's level and stage fields
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
   
-  - [ ] 6.6 Implement main update orchestration
+  - [x] 6.6 Implement main update orchestration
+
+
+
+
+
     - Implement update_pet(pet, contribution_data, recent_activity, current_time) method
     - Call calculate_time_decay
     - Call apply_activity_boosts
