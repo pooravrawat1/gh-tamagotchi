@@ -451,21 +451,35 @@
     - _Requirements: 7.2, 8.3_
 
 - [ ] 12. Integration and final wiring
-  - [ ] 12.1 Wire up dependency injection
+  - [x] 12.1 Wire up dependency injection
+
+
+
+
+
     - Create api/dependencies.py
     - Implement factory functions for all services
     - Set up database session dependency
     - Configure httpx AsyncClient as dependency
     - _Requirements: 7.1_
   
-  - [ ] 12.2 Initialize application on startup
+  - [x] 12.2 Initialize application on startup
+
+
+
+
+
     - Add startup event handler to create database tables
     - Initialize cache service
     - Validate GitHub token is configured
     - Log application startup information
     - _Requirements: 6.3, 8.1_
   
-  - [ ] 12.3 Add logging configuration
+  - [x] 12.3 Add logging configuration
+
+
+
+
     - Create utils/logging.py with logging setup
     - Configure log levels from environment
     - Add structured logging for key operations

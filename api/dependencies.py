@@ -64,10 +64,8 @@ async def get_github_service() -> GitHubService:
         settings = get_settings()
         http_client = await get_http_client()
         _github_service = GitHubService(
-            token=settings.github_token,
-            http_client=http_client,
-            graphql_url=settings.github_graphql_url,
-            rest_url=settings.github_rest_url
+            settings=settings,
+            http_client=http_client
         )
         logger.info("GitHubService initialized")
     

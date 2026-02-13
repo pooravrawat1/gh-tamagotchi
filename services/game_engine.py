@@ -12,22 +12,52 @@ class GameEngine:
     Game engine responsible for calculating pet stat updates, decay, and evolution.
     """
     
-    # Stat decay rates (per hour)
-    HUNGER_DECAY_RATE = 2.0
-    HAPPINESS_DECAY_RATE = 3.0
-    ENERGY_DECAY_RATE = 1.5
-    HEALTH_DECAY_RATE = 0.5
-    
-    # Activity boost values
-    COMMIT_HUNGER_BOOST = 10
-    COMMIT_HAPPINESS_BOOST = 5
-    PR_MERGED_HAPPINESS_BOOST = 10
-    PR_MERGED_XP_BOOST = 20
-    
-    # Inactivity penalties
-    INACTIVE_DAYS_THRESHOLD = 3
-    INACTIVE_HAPPINESS_PENALTY = 15
-    INACTIVE_ENERGY_PENALTY = 10
+    def __init__(
+        self,
+        hunger_decay_rate: float = 2.0,
+        happiness_decay_rate: float = 3.0,
+        energy_decay_rate: float = 1.5,
+        health_decay_rate: float = 0.5,
+        commit_hunger_boost: int = 10,
+        commit_happiness_boost: int = 5,
+        pr_merged_happiness_boost: int = 10,
+        pr_merged_xp_boost: int = 20,
+        inactive_days_threshold: int = 3,
+        inactive_happiness_penalty: int = 15,
+        inactive_energy_penalty: int = 10
+    ):
+        """
+        Initialize the game engine with configurable parameters.
+        
+        Args:
+            hunger_decay_rate: Hunger decay rate per hour
+            happiness_decay_rate: Happiness decay rate per hour
+            energy_decay_rate: Energy decay rate per hour
+            health_decay_rate: Health decay rate per hour
+            commit_hunger_boost: Hunger boost for commits today
+            commit_happiness_boost: Happiness boost for commits today
+            pr_merged_happiness_boost: Happiness boost for merged PRs
+            pr_merged_xp_boost: XP boost for merged PRs
+            inactive_days_threshold: Days of inactivity before penalties apply
+            inactive_happiness_penalty: Happiness penalty for inactivity
+            inactive_energy_penalty: Energy penalty for inactivity
+        """
+        # Stat decay rates (per hour)
+        self.HUNGER_DECAY_RATE = hunger_decay_rate
+        self.HAPPINESS_DECAY_RATE = happiness_decay_rate
+        self.ENERGY_DECAY_RATE = energy_decay_rate
+        self.HEALTH_DECAY_RATE = health_decay_rate
+        
+        # Activity boost values
+        self.COMMIT_HUNGER_BOOST = commit_hunger_boost
+        self.COMMIT_HAPPINESS_BOOST = commit_happiness_boost
+        self.PR_MERGED_HAPPINESS_BOOST = pr_merged_happiness_boost
+        self.PR_MERGED_XP_BOOST = pr_merged_xp_boost
+        
+        # Inactivity penalties
+        self.INACTIVE_DAYS_THRESHOLD = inactive_days_threshold
+        self.INACTIVE_HAPPINESS_PENALTY = inactive_happiness_penalty
+        self.INACTIVE_ENERGY_PENALTY = inactive_energy_penalty
     
     @staticmethod
     def clamp_stat(value: float, min_value: int = 0, max_value: int = 100) -> int:

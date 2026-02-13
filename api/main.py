@@ -21,13 +21,10 @@ from api.dependencies import (
 )
 from api.routes import router as pet_router
 from api.error_handlers import register_error_handlers
+from utils.logging import setup_logging, get_logger
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+# Initialize logging (will be configured in startup event)
+logger = get_logger(__name__)
 
 # Initialize FastAPI application
 app = FastAPI(
@@ -58,17 +55,26 @@ async def startup_event():
     Application startup event handler.
     
     Performs initialization tasks:
+    - Configures logging
     - Loads and validates configuration
     - Creates database tables
     - Initializes service dependencies
     - Validates GitHub token is configured
     - Logs startup information
     """
+    # Load settings first to get log level
+    settings = get_settings()
+    
+    # Configure logging based on settings
+    setup_logging(
+        log_level=settings.log_level,
+        use_console=True,
+        use_color=True
+    )
+    
     logger.info("Starting GitHub Tamagotchi application...")
     
     try:
-        # Load settings
-        settings = get_settings()
         logger.info(f"Configuration loaded: database={settings.database_url}")
         
         # Validate GitHub token is configured
