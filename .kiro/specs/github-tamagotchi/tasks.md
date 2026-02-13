@@ -77,7 +77,7 @@
     - Test constraint validation
     - _Requirements: 6.1, 6.4_
 
-- [ ] 5. Implement GitHub data service
+- [x] 5. Implement GitHub data service
   - [x] 5.1 Create GitHub API client
 
 
@@ -131,7 +131,12 @@
     - _Requirements: 10.2, 10.3_
 
 - [ ] 6. Implement pet game engine
-  - [ ] 6.1 Create game engine core
+  - [x] 6.1 Create game engine core
+
+
+
+
+
     - Create services/game_engine.py with GameEngine class
     - Define stat decay rates and activity boost constants
     - Implement helper method to clamp stats to [0, 100] range
