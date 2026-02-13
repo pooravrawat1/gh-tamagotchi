@@ -62,7 +62,7 @@ class SVGRenderer:
         
         # Get pet sprite and mood message
         pet_sprite = self.get_pet_sprite(pet.stage)
-        mood_message = self._get_mood_message_placeholder(pet)
+        mood_message = self.get_mood_message(pet)
         
         # Build SVG
         svg = f'''<svg width="{self.WIDTH}" height="{self.HEIGHT}" xmlns="http://www.w3.org/2000/svg">
@@ -241,20 +241,39 @@ class SVGRenderer:
     <ellipse cx="0" cy="0" rx="30" ry="45" fill="#f5f5f5" opacity="0.6"/>
 '''
     
-    def _get_mood_message_placeholder(self, pet: PetState) -> str:
+    def get_mood_message(self, pet: PetState) -> str:
         """
-        Placeholder for mood message generation.
+        Generate mood message based on pet stats.
         
-        This will be implemented in task 8.4.
-        For now, returns a generic message.
+        Analyzes pet stats to determine the most relevant mood message.
+        Priority is given to critical stats (low values) over positive stats.
         
         Args:
             pet: The pet state
             
         Returns:
-            Mood message string
+            Mood message string based on stat thresholds
         """
-        return "Your virtual pet"
+        # Check for critical conditions first (low stats)
+        if pet.hunger < 30:
+            return "Getting hungry!"
+        if pet.energy < 30:
+            return "Feeling tired..."
+        if pet.health < 30:
+            return "Not feeling well..."
+        if pet.happiness < 30:
+            return "Needs attention..."
+        
+        # Check for positive conditions (high stats)
+        if pet.happiness > 70:
+            return "Feeling great!"
+        if pet.energy > 70 and pet.health > 70:
+            return "Full of energy!"
+        if pet.hunger > 70:
+            return "Well fed and happy!"
+        
+        # Default neutral message
+        return "Doing okay"
     
     def _escape_xml(self, text: str) -> str:
         """
