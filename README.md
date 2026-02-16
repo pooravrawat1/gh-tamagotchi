@@ -360,13 +360,6 @@ github-tamagotchi/
 └── README.md              # This file
 ```
 
-## CI/CD
-
-The project uses GitHub Actions for continuous integration. On every push and pull request, the following checks run:
-
-- Unit tests (pytest)
-- Security checks (bandit, safety)
-
 ## Troubleshooting
 
 ### GitHub Token Issues
@@ -385,6 +378,99 @@ The project uses GitHub Actions for continuous integration. On every push and pu
 - GitHub API has rate limits (60 requests/hour for unauthenticated, 5000 for authenticated)
 - The service caches responses for 5 minutes to minimize API calls
 - If rate limited, wait for the cache to expire or upgrade your GitHub token
+
+## How the pet works
+
+The pet is driven by your **GitHub activity + time**, using a simple game engine.
+
+### Stats
+
+The pet tracks:
+
+- **Hunger** (0–100)
+- **Happiness** (0–100)
+- **Energy** (0–100)
+- **Health** (0–100)
+- **XP** and **Level**
+- **Stage**: `egg → baby → teen → adult → legendary`
+
+All stats except XP/level are clamped between 0 and 100.
+
+### Time-based decay (it gets hungry & tired)
+
+Every time the pet is updated, it looks at how many hours passed since the last update and decays stats:
+
+- Hunger: **−2.0 per hour**
+- Happiness: **−3.0 per hour**
+- Energy: **−1.5 per hour**
+- Health: **−0.5 per hour**
+
+So if 12 hours pass, roughly:
+
+- Hunger −24
+- Happiness −36
+- Energy −18
+- Health −6
+
+### Activity boosts (how you “feed” it)
+
+After decay, your recent GitHub activity can boost stats:
+
+**Commits today**
+
+If you have at least **1 commit today**:
+
+- Hunger **+10** (less hungry)
+- Happiness **+5**
+
+**Merged pull requests**
+
+For each **merged PR** in recent activity:
+
+- Happiness **+10**
+- XP **+20**
+
+This is how you “feed” and cheer up the pet: **commit code today** and **merge PRs**.
+
+### Inactivity penalties (ignoring your pet)
+
+If you’ve been inactive for more than **3 days** (no contributions):
+
+- Happiness **−15**
+- Energy **−10**
+
+This is applied on top of the normal per-hour decay, so long breaks make the pet sad and tired.
+
+### Growth & evolution
+
+XP accumulates mainly from **merged PRs**:
+
+- Every **100 XP = +1 level**
+
+Stages are based on level:
+
+- Level **0–2**: `egg`
+- Level **3–6**: `baby`
+- Level **7–12**: `teen`
+- Level **13–20**: `adult`
+- Level **21+**: `legendary`
+
+Over time, as you merge PRs and gain XP, your pet evolves through these stages.
+
+### When updates happen
+
+The game engine runs when:
+
+- The `/pet?user=...` API is called and the cache needs a refresh, or
+- The **GitHub Action** in this repo (or your profile repo) runs the generator script.
+
+On each run it:
+
+1. Applies time-based decay since the last update
+2. Applies activity boosts (commits today, merged PRs)
+3. Applies inactivity penalties (if >3 days inactive)
+4. Recomputes level and evolution stage
+5. Updates the `last_updated` timestamp
 
 ## Contributing
 
