@@ -1,0 +1,18 @@
+# Render Blueprint - GitHub Tamagotchi
+# Deploy: push to GitHub, then connect this repo at https://dashboard.render.com
+# You will be prompted to set GITHUB_TOKEN in the dashboard.
+
+services:
+  - type: web
+    name: gh-tamagotchi
+    runtime: python
+    plan: free
+
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn api.main:app --host 0.0.0.0 --port $PORT
+
+    healthCheckPath: /health
+
+    envVars:
+      - key: GITHUB_TOKEN
+        sync: false  # You'll be prompted to set this in the Render dashboard

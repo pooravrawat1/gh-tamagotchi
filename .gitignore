@@ -47,6 +47,9 @@ venv.bak/
 *.sqlite3
 pets.db
 
+# Action/CLI state (keep in profile repos; ignore in this repo)
+.pet-state.json
+
 # Logs
 *.log
 logs/
