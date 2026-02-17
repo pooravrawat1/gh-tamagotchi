@@ -36,7 +36,10 @@ class SVGRenderer:
     COLOR_TEXT_PRIMARY = "#333"
     COLOR_TEXT_SECONDARY = "#666"
     COLOR_TEXT_TERTIARY = "#888"
-    
+
+    # Retro 90s computer font: pixel-art style
+    FONT_FAMILY = '"Press Start 2P", "VT323", "Courier New", Courier, monospace'
+
     def render_pet(self, pet: PetState) -> str:
         """
         Generate SVG string from pet state.
@@ -66,6 +69,13 @@ class SVGRenderer:
         
         # Build SVG
         svg = f'''<svg width="{self.WIDTH}" height="{self.HEIGHT}" xmlns="http://www.w3.org/2000/svg">
+  <!-- Google Fonts for retro 90s computer look -->
+  <defs>
+    <style type="text/css">
+      @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&amp;family=VT323&amp;display=swap');
+    </style>
+  </defs>
+  
   <!-- Background -->
   <rect width="{self.WIDTH}" height="{self.HEIGHT}" fill="{self.COLOR_BACKGROUND}"/>
   
@@ -75,46 +85,46 @@ class SVGRenderer:
   </g>
   
   <!-- Username -->
-  <text x="200" y="30" text-anchor="middle" font-size="20" font-weight="bold" fill="{self.COLOR_TEXT_PRIMARY}" font-family="Arial, sans-serif">
+  <text x="200" y="30" text-anchor="middle" font-size="20" font-weight="bold" fill="{self.COLOR_TEXT_PRIMARY}" font-family='{self.FONT_FAMILY}'>
     {self._escape_xml(pet.username)}'s Pet
   </text>
   
   <!-- Stage and Level Label -->
-  <text x="200" y="55" text-anchor="middle" font-size="14" fill="{self.COLOR_TEXT_SECONDARY}" font-family="Arial, sans-serif">
+  <text x="200" y="55" text-anchor="middle" font-size="14" fill="{self.COLOR_TEXT_SECONDARY}" font-family='{self.FONT_FAMILY}'>
     Stage: {pet.stage.value if hasattr(pet.stage, 'value') else pet.stage} | Level {pet.level}
+  </text>
+  
+  <!-- Mood Text (below sprite, above bars) -->
+  <text x="200" y="205" text-anchor="middle" font-size="12" fill="{self.COLOR_TEXT_TERTIARY}" font-family='{self.FONT_FAMILY}'>
+    {self._escape_xml(mood_message)}
   </text>
   
   <!-- Stat Bars -->
   <g id="stats" transform="translate(50, 220)">
     <!-- Hunger Bar -->
-    <text x="0" y="0" font-size="12" fill="{self.COLOR_TEXT_PRIMARY}" font-family="Arial, sans-serif">Hunger:</text>
+    <text x="0" y="0" font-size="12" fill="{self.COLOR_TEXT_PRIMARY}" font-family='{self.FONT_FAMILY}'>Hunger:</text>
     <rect x="{self.STAT_BAR_X}" y="-10" width="{self.STAT_BAR_WIDTH}" height="{self.STAT_BAR_HEIGHT}" fill="{self.COLOR_BAR_BG}" rx="5"/>
     <rect x="{self.STAT_BAR_X}" y="-10" width="{hunger_width}" height="{self.STAT_BAR_HEIGHT}" fill="{self.COLOR_HUNGER}" rx="5"/>
-    <text x="{self.STAT_BAR_X + self.STAT_BAR_WIDTH + 10}" y="0" font-size="11" fill="{self.COLOR_TEXT_SECONDARY}" font-family="Arial, sans-serif">{pet.hunger}</text>
+    <text x="{self.STAT_BAR_X + self.STAT_BAR_WIDTH + 10}" y="0" font-size="11" fill="{self.COLOR_TEXT_SECONDARY}" font-family='{self.FONT_FAMILY}'>{pet.hunger}</text>
     
     <!-- Happiness Bar -->
-    <text x="0" y="{self.STAT_BAR_SPACING}" font-size="12" fill="{self.COLOR_TEXT_PRIMARY}" font-family="Arial, sans-serif">Happy:</text>
+    <text x="0" y="{self.STAT_BAR_SPACING}" font-size="12" fill="{self.COLOR_TEXT_PRIMARY}" font-family='{self.FONT_FAMILY}'>Happy:</text>
     <rect x="{self.STAT_BAR_X}" y="{self.STAT_BAR_SPACING - 10}" width="{self.STAT_BAR_WIDTH}" height="{self.STAT_BAR_HEIGHT}" fill="{self.COLOR_BAR_BG}" rx="5"/>
     <rect x="{self.STAT_BAR_X}" y="{self.STAT_BAR_SPACING - 10}" width="{happiness_width}" height="{self.STAT_BAR_HEIGHT}" fill="{self.COLOR_HAPPINESS}" rx="5"/>
-    <text x="{self.STAT_BAR_X + self.STAT_BAR_WIDTH + 10}" y="{self.STAT_BAR_SPACING}" font-size="11" fill="{self.COLOR_TEXT_SECONDARY}" font-family="Arial, sans-serif">{pet.happiness}</text>
+    <text x="{self.STAT_BAR_X + self.STAT_BAR_WIDTH + 10}" y="{self.STAT_BAR_SPACING}" font-size="11" fill="{self.COLOR_TEXT_SECONDARY}" font-family='{self.FONT_FAMILY}'>{pet.happiness}</text>
     
     <!-- Health Bar -->
-    <text x="0" y="{self.STAT_BAR_SPACING * 2}" font-size="12" fill="{self.COLOR_TEXT_PRIMARY}" font-family="Arial, sans-serif">Health:</text>
+    <text x="0" y="{self.STAT_BAR_SPACING * 2}" font-size="12" fill="{self.COLOR_TEXT_PRIMARY}" font-family='{self.FONT_FAMILY}'>Health:</text>
     <rect x="{self.STAT_BAR_X}" y="{self.STAT_BAR_SPACING * 2 - 10}" width="{self.STAT_BAR_WIDTH}" height="{self.STAT_BAR_HEIGHT}" fill="{self.COLOR_BAR_BG}" rx="5"/>
     <rect x="{self.STAT_BAR_X}" y="{self.STAT_BAR_SPACING * 2 - 10}" width="{health_width}" height="{self.STAT_BAR_HEIGHT}" fill="{self.COLOR_HEALTH}" rx="5"/>
-    <text x="{self.STAT_BAR_X + self.STAT_BAR_WIDTH + 10}" y="{self.STAT_BAR_SPACING * 2}" font-size="11" fill="{self.COLOR_TEXT_SECONDARY}" font-family="Arial, sans-serif">{pet.health}</text>
+    <text x="{self.STAT_BAR_X + self.STAT_BAR_WIDTH + 10}" y="{self.STAT_BAR_SPACING * 2}" font-size="11" fill="{self.COLOR_TEXT_SECONDARY}" font-family='{self.FONT_FAMILY}'>{pet.health}</text>
     
     <!-- Energy Bar -->
-    <text x="0" y="{self.STAT_BAR_SPACING * 3}" font-size="12" fill="{self.COLOR_TEXT_PRIMARY}" font-family="Arial, sans-serif">Energy:</text>
+    <text x="0" y="{self.STAT_BAR_SPACING * 3}" font-size="12" fill="{self.COLOR_TEXT_PRIMARY}" font-family='{self.FONT_FAMILY}'>Energy:</text>
     <rect x="{self.STAT_BAR_X}" y="{self.STAT_BAR_SPACING * 3 - 10}" width="{self.STAT_BAR_WIDTH}" height="{self.STAT_BAR_HEIGHT}" fill="{self.COLOR_BAR_BG}" rx="5"/>
     <rect x="{self.STAT_BAR_X}" y="{self.STAT_BAR_SPACING * 3 - 10}" width="{energy_width}" height="{self.STAT_BAR_HEIGHT}" fill="{self.COLOR_ENERGY}" rx="5"/>
-    <text x="{self.STAT_BAR_X + self.STAT_BAR_WIDTH + 10}" y="{self.STAT_BAR_SPACING * 3}" font-size="11" fill="{self.COLOR_TEXT_SECONDARY}" font-family="Arial, sans-serif">{pet.energy}</text>
+    <text x="{self.STAT_BAR_X + self.STAT_BAR_WIDTH + 10}" y="{self.STAT_BAR_SPACING * 3}" font-size="11" fill="{self.COLOR_TEXT_SECONDARY}" font-family='{self.FONT_FAMILY}'>{pet.energy}</text>
   </g>
-  
-  <!-- Mood Text -->
-  <text x="200" y="285" text-anchor="middle" font-size="12" fill="{self.COLOR_TEXT_TERTIARY}" font-family="Arial, sans-serif">
-    {self._escape_xml(mood_message)}
-  </text>
 </svg>'''
         
         return svg
