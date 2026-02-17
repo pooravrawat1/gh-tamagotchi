@@ -1,4 +1,11 @@
 <svg width="400" height="300" xmlns="http://www.w3.org/2000/svg">
+  <!-- Google Fonts for retro 90s computer look -->
+  <defs>
+    <style type="text/css">
+      @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&amp;family=VT323&amp;display=swap');
+    </style>
+  </defs>
+  
   <!-- Background -->
   <rect width="400" height="300" fill="#f0f0f0"/>
   
@@ -12,44 +19,44 @@
   </g>
   
   <!-- Username -->
-  <text x="200" y="30" text-anchor="middle" font-size="20" font-weight="bold" fill="#333" font-family="Arial, sans-serif">
+  <text x="200" y="30" text-anchor="middle" font-size="20" font-weight="bold" fill="#333" font-family='"Press Start 2P", "VT323", "Courier New", Courier, monospace'>
     pooravrawat1's Pet
   </text>
   
   <!-- Stage and Level Label -->
-  <text x="200" y="55" text-anchor="middle" font-size="14" fill="#666" font-family="Arial, sans-serif">
+  <text x="200" y="55" text-anchor="middle" font-size="14" fill="#666" font-family='"Press Start 2P", "VT323", "Courier New", Courier, monospace'>
     Stage: egg | Level 0
+  </text>
+  
+  <!-- Mood Text (below sprite, above bars) -->
+  <text x="200" y="205" text-anchor="middle" font-size="12" fill="#888" font-family='"Press Start 2P", "VT323", "Courier New", Courier, monospace'>
+    Getting hungry!
   </text>
   
   <!-- Stat Bars -->
   <g id="stats" transform="translate(50, 220)">
     <!-- Hunger Bar -->
-    <text x="0" y="0" font-size="12" fill="#333" font-family="Arial, sans-serif">Hunger:</text>
+    <text x="0" y="0" font-size="12" fill="#333" font-family='"Press Start 2P", "VT323", "Courier New", Courier, monospace'>Hunger:</text>
     <rect x="70" y="-10" width="200" height="15" fill="#ddd" rx="5"/>
-    <rect x="70" y="-10" width="34.0" height="15" fill="#ff6b6b" rx="5"/>
-    <text x="280" y="0" font-size="11" fill="#666" font-family="Arial, sans-serif">17</text>
+    <rect x="70" y="-10" width="38.0" height="15" fill="#ff6b6b" rx="5"/>
+    <text x="280" y="0" font-size="11" fill="#666" font-family='"Press Start 2P", "VT323", "Courier New", Courier, monospace'>19</text>
     
     <!-- Happiness Bar -->
-    <text x="0" y="25" font-size="12" fill="#333" font-family="Arial, sans-serif">Happy:</text>
+    <text x="0" y="25" font-size="12" fill="#333" font-family='"Press Start 2P", "VT323", "Courier New", Courier, monospace'>Happy:</text>
     <rect x="70" y="15" width="200" height="15" fill="#ddd" rx="5"/>
-    <rect x="70" y="15" width="0.0" height="15" fill="#ffd93d" rx="5"/>
-    <text x="280" y="25" font-size="11" fill="#666" font-family="Arial, sans-serif">0</text>
+    <rect x="70" y="15" width="10.0" height="15" fill="#ffd93d" rx="5"/>
+    <text x="280" y="25" font-size="11" fill="#666" font-family='"Press Start 2P", "VT323", "Courier New", Courier, monospace'>5</text>
     
     <!-- Health Bar -->
-    <text x="0" y="50" font-size="12" fill="#333" font-family="Arial, sans-serif">Health:</text>
+    <text x="0" y="50" font-size="12" fill="#333" font-family='"Press Start 2P", "VT323", "Courier New", Courier, monospace'>Health:</text>
     <rect x="70" y="40" width="200" height="15" fill="#ddd" rx="5"/>
-    <rect x="70" y="40" width="176.0" height="15" fill="#6bcf7f" rx="5"/>
-    <text x="280" y="50" font-size="11" fill="#666" font-family="Arial, sans-serif">88</text>
+    <rect x="70" y="40" width="172.0" height="15" fill="#6bcf7f" rx="5"/>
+    <text x="280" y="50" font-size="11" fill="#666" font-family='"Press Start 2P", "VT323", "Courier New", Courier, monospace'>86</text>
     
     <!-- Energy Bar -->
-    <text x="0" y="75" font-size="12" fill="#333" font-family="Arial, sans-serif">Energy:</text>
+    <text x="0" y="75" font-size="12" fill="#333" font-family='"Press Start 2P", "VT323", "Courier New", Courier, monospace'>Energy:</text>
     <rect x="70" y="65" width="200" height="15" fill="#ddd" rx="5"/>
-    <rect x="70" y="65" width="136.0" height="15" fill="#4d96ff" rx="5"/>
-    <text x="280" y="75" font-size="11" fill="#666" font-family="Arial, sans-serif">68</text>
+    <rect x="70" y="65" width="124.0" height="15" fill="#4d96ff" rx="5"/>
+    <text x="280" y="75" font-size="11" fill="#666" font-family='"Press Start 2P", "VT323", "Courier New", Courier, monospace'>62</text>
   </g>
-  
-  <!-- Mood Text -->
-  <text x="200" y="285" text-anchor="middle" font-size="12" fill="#888" font-family="Arial, sans-serif">
-    Getting hungry!
-  </text>
 </svg>
