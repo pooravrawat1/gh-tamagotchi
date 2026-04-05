@@ -1,11 +1,11 @@
 {
   "username": "pooravrawat1",
-  "hunger": 0,
-  "happiness": 0,
+  "hunger": 10,
+  "happiness": 5,
   "health": 0,
   "energy": 0,
   "level": 0,
   "xp": 0,
   "stage": "egg",
-  "last_updated": "2026-04-05T12:29:32.811336"
+  "last_updated": "2026-04-05T18:25:42.743330"
 }
