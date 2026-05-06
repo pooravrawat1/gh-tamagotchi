@@ -7,7 +7,7 @@ including GitHub data fetching, game engine updates, persistence, and rendering.
 
 import logging
 from datetime import datetime
-from typing import Optional
+from typing import List, Tuple
 
 from services.github_service import GitHubService
 from services.game_engine import GameEngine
@@ -15,6 +15,7 @@ from db.repository import PetRepository
 from rendering.svg_renderer import SVGRenderer
 from utils.cache import CacheService
 from models.pet_models import PetState
+from models.github_models import ContributionData, ActivityEvent
 from config.settings import Settings
 
 logger = logging.getLogger(__name__)
@@ -85,6 +86,122 @@ class PetService:
         )
         
         return should_update
+
+    def _get_or_create_pet(self, username: str) -> Tuple[PetState, bool]:
+        """
+        Return a pet and whether it was created during this request.
+
+        New pets must sync immediately; using get_or_create_pet directly would
+        hide that distinction because newly-created rows have a fresh timestamp.
+        """
+        pet = self.repository.get_pet(username)
+        if pet is not None:
+            return pet, False
+
+        return self.repository.create_pet(username), True
+
+    async def _validate_user_exists_cached(self, username: str) -> None:
+        """Validate the GitHub user, caching successful validations briefly."""
+        cache_key = f"github_user_exists:{username}"
+        if self.cache.get(cache_key):
+            return
+
+        await self.github_service.validate_user_exists(username)
+        self.cache.set(cache_key, True, ttl=self.settings.cache_ttl_seconds)
+
+    async def _get_contribution_data_cached(self, username: str) -> ContributionData:
+        """Fetch contribution data, reusing the in-memory cache when present."""
+        cache_key = self.cache.generate_contribution_key(username)
+        contribution_data = self.cache.get(cache_key)
+        if contribution_data is not None:
+            return contribution_data
+
+        contribution_data = await self.github_service.get_contribution_data(
+            username,
+            days=7
+        )
+        self.cache.set(
+            cache_key,
+            contribution_data,
+            ttl=self.settings.cache_ttl_seconds
+        )
+        return contribution_data
+
+    async def _get_recent_activity_cached(self, username: str) -> List[ActivityEvent]:
+        """Fetch recent activity, reusing the in-memory cache when present."""
+        cache_key = self.cache.generate_activity_key(username)
+        recent_activity = self.cache.get(cache_key)
+        if recent_activity is not None:
+            return recent_activity
+
+        recent_activity = await self.github_service.get_recent_activity(
+            username,
+            limit=30
+        )
+        self.cache.set(
+            cache_key,
+            recent_activity,
+            ttl=self.settings.cache_ttl_seconds
+        )
+        return recent_activity
+
+    async def _sync_pet_from_github(
+        self,
+        pet: PetState,
+        current_time: datetime,
+        initial_sync: bool = False
+    ) -> PetState:
+        """Fetch GitHub data, update the pet, and persist the new state."""
+        username = pet.username
+
+        logger.debug(f"Fetching contribution data for: {username}")
+        contribution_data = await self._get_contribution_data_cached(username)
+
+        logger.debug(f"Fetching recent activity for: {username}")
+        recent_activity = await self._get_recent_activity_cached(username)
+
+        logger.debug(f"Updating pet stats via game engine for: {username}")
+        pet = self.game_engine.update_pet(
+            pet,
+            contribution_data,
+            recent_activity,
+            current_time,
+            initial_sync=initial_sync
+        )
+
+        logger.debug(f"Persisting updated pet for: {username}")
+        pet = self.repository.update_pet(pet)
+
+        logger.info(
+            f"Pet updated for {username}: "
+            f"hunger={pet.hunger}, happiness={pet.happiness}, "
+            f"level={pet.level}, stage={pet.stage}"
+        )
+
+        return pet
+
+    async def _get_current_pet(self, username: str) -> PetState:
+        """Get the pet state, refreshing from GitHub only when necessary."""
+        logger.debug(f"Getting or creating pet for user: {username}")
+        pet, created = self._get_or_create_pet(username)
+        current_time = datetime.utcnow()
+
+        if created:
+            logger.debug(f"New pet created, validating and syncing GitHub data for: {username}")
+            await self._validate_user_exists_cached(username)
+            return await self._sync_pet_from_github(
+                pet,
+                pet.last_updated,
+                initial_sync=True
+            )
+
+        if self.should_update_from_github(pet):
+            logger.debug(f"Cache expired, validating and fetching fresh GitHub data for: {username}")
+            await self._validate_user_exists_cached(username)
+            return await self._sync_pet_from_github(pet, current_time)
+
+        logger.debug(f"Using cached pet state for: {username}")
+        return pet
     
     async def get_pet_svg(self, username: str) -> str:
         """
@@ -112,51 +229,7 @@ class PetService:
         """
         logger.info(f"Generating pet SVG for user: {username}")
         
-        # Step 1: Validate GitHub user exists
-        logger.debug(f"Validating GitHub user: {username}")
-        await self.github_service.validate_user_exists(username)
-        
-        # Step 2: Get or create pet from database
-        logger.debug(f"Getting or creating pet for user: {username}")
-        pet = self.repository.get_or_create_pet(username)
-        
-        # Step 3: Check if we need to fetch fresh GitHub data
-        current_time = datetime.utcnow()
-        
-        if self.should_update_from_github(pet):
-            logger.debug(f"Cache expired, fetching fresh GitHub data for: {username}")
-            
-            # Fetch GitHub data
-            logger.debug(f"Fetching contribution data for: {username}")
-            contribution_data = await self.github_service.get_contribution_data(
-                username,
-                days=7
-            )
-            
-            logger.debug(f"Fetching recent activity for: {username}")
-            recent_activity = await self.github_service.get_recent_activity(
-                username,
-                limit=30
-            )
-            
-            # Update pet stats via game engine
-            logger.debug(f"Updating pet stats via game engine for: {username}")
-            pet = self.game_engine.update_pet(
-                pet,
-                contribution_data,
-                recent_activity,
-                current_time
-            )
-            
-            # Persist updated pet to database
-            logger.debug(f"Persisting updated pet for: {username}")
-            pet = self.repository.update_pet(pet)
-            
-            logger.info(f"Pet updated for {username}: "
-                       f"hunger={pet.hunger}, happiness={pet.happiness}, "
-                       f"level={pet.level}, stage={pet.stage}")
-        else:
-            logger.debug(f"Using cached pet state for: {username}")
+        pet = await self._get_current_pet(username)
         
         # Step 4: Render SVG from pet state
         logger.debug(f"Rendering SVG for: {username}")
@@ -188,51 +261,7 @@ class PetService:
         """
         logger.info(f"Getting pet stats for user: {username}")
         
-        # Step 1: Validate GitHub user exists
-        logger.debug(f"Validating GitHub user: {username}")
-        await self.github_service.validate_user_exists(username)
-        
-        # Step 2: Get or create pet from database
-        logger.debug(f"Getting or creating pet for user: {username}")
-        pet = self.repository.get_or_create_pet(username)
-        
-        # Step 3: Check if we need to fetch fresh GitHub data
-        current_time = datetime.utcnow()
-        
-        if self.should_update_from_github(pet):
-            logger.debug(f"Cache expired, fetching fresh GitHub data for: {username}")
-            
-            # Fetch GitHub data
-            logger.debug(f"Fetching contribution data for: {username}")
-            contribution_data = await self.github_service.get_contribution_data(
-                username,
-                days=7
-            )
-            
-            logger.debug(f"Fetching recent activity for: {username}")
-            recent_activity = await self.github_service.get_recent_activity(
-                username,
-                limit=30
-            )
-            
-            # Update pet stats via game engine
-            logger.debug(f"Updating pet stats via game engine for: {username}")
-            pet = self.game_engine.update_pet(
-                pet,
-                contribution_data,
-                recent_activity,
-                current_time
-            )
-            
-            # Persist updated pet to database
-            logger.debug(f"Persisting updated pet for: {username}")
-            pet = self.repository.update_pet(pet)
-            
-            logger.info(f"Pet updated for {username}: "
-                       f"hunger={pet.hunger}, happiness={pet.happiness}, "
-                       f"level={pet.level}, stage={pet.stage}")
-        else:
-            logger.debug(f"Using cached pet state for: {username}")
+        pet = await self._get_current_pet(username)
         
         logger.info(f"Successfully retrieved pet stats for: {username}")
         

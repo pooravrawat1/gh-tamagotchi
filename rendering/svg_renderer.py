@@ -37,8 +37,8 @@ class SVGRenderer:
     COLOR_TEXT_SECONDARY = "#666"
     COLOR_TEXT_TERTIARY = "#888"
 
-    # Retro 90s computer font: pixel-art style
-    FONT_FAMILY = '"Press Start 2P", "VT323", "Courier New", Courier, monospace'
+    # System monospace stack keeps the SVG self-contained for README embedding.
+    FONT_FAMILY = '"Courier New", Courier, monospace'
 
     def render_pet(self, pet: PetState) -> str:
         """
@@ -69,13 +69,6 @@ class SVGRenderer:
         
         # Build SVG
         svg = f'''<svg width="{self.WIDTH}" height="{self.HEIGHT}" xmlns="http://www.w3.org/2000/svg">
-  <!-- Google Fonts for retro 90s computer look -->
-  <defs>
-    <style type="text/css">
-      @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&amp;family=VT323&amp;display=swap');
-    </style>
-  </defs>
-  
   <!-- Background -->
   <rect width="{self.WIDTH}" height="{self.HEIGHT}" fill="{self.COLOR_BACKGROUND}"/>
   

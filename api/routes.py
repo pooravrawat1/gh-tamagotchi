@@ -6,7 +6,7 @@ including pet SVG generation, stats retrieval, and health checks.
 """
 
 import logging
-from fastapi import APIRouter, Query, HTTPException, Response
+from fastapi import APIRouter, Depends, Query, HTTPException, Response
 from fastapi.responses import JSONResponse
 
 from services.pet_service import PetService
@@ -16,7 +16,7 @@ from services.github_exceptions import (
     GitHubTimeoutError,
     GitHubServiceError
 )
-from api.dependencies import get_pet_service
+from api.dependencies import get_pet_service_dependency
 from db.database import check_db_health
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,10 @@ router = APIRouter()
 
 
 @router.get("/pet")
-async def get_pet_widget(user: str = Query(..., description="GitHub username")) -> Response:
+async def get_pet_widget(
+    user: str = Query(..., description="GitHub username"),
+    pet_service: PetService = Depends(get_pet_service_dependency)
+) -> Response:
     """
     Generate and return SVG pet widget for a GitHub user.
     
@@ -65,9 +68,6 @@ async def get_pet_widget(user: str = Query(..., description="GitHub username")) 
         )
     
     try:
-        # Get pet service instance
-        pet_service = get_pet_service()
-        
         # Generate SVG for the user
         svg_content = await pet_service.get_pet_svg(user)
         
@@ -120,7 +120,10 @@ async def get_pet_widget(user: str = Query(..., description="GitHub username")) 
 
 
 @router.get("/stats")
-async def get_pet_stats(user: str = Query(..., description="GitHub username")) -> JSONResponse:
+async def get_pet_stats(
+    user: str = Query(..., description="GitHub username"),
+    pet_service: PetService = Depends(get_pet_service_dependency)
+) -> JSONResponse:
     """
     Get pet statistics as JSON for a GitHub user.
     
@@ -169,9 +172,6 @@ async def get_pet_stats(user: str = Query(..., description="GitHub username")) -
         )
     
     try:
-        # Get pet service instance
-        pet_service = get_pet_service()
-        
         # Get pet stats for the user
         pet_state = await pet_service.get_pet_stats(user)
         

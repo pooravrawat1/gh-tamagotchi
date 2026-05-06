@@ -1,8 +1,8 @@
 """
 Game engine for GitHub Tamagotchi pet stats and evolution logic.
 """
-from datetime import date, datetime
-from typing import List
+from datetime import datetime, timezone
+from typing import List, Optional
 from models.pet_models import PetState
 from models.github_models import ContributionData, ActivityEvent
 
@@ -73,6 +73,13 @@ class GameEngine:
             Clamped integer value within [min_value, max_value]
         """
         return int(max(min_value, min(max_value, value)))
+
+    @staticmethod
+    def _as_naive_utc(value: datetime) -> datetime:
+        """Normalize aware datetimes from GitHub to naive UTC for comparison."""
+        if value.tzinfo is None:
+            return value
+        return value.astimezone(timezone.utc).replace(tzinfo=None)
     
     def calculate_time_decay(self, pet: PetState, hours_elapsed: float) -> PetState:
         """
@@ -111,7 +118,9 @@ class GameEngine:
         self,
         pet: PetState,
         contribution_data: ContributionData,
-        recent_activity: List[ActivityEvent]
+        recent_activity: List[ActivityEvent],
+        current_time: Optional[datetime] = None,
+        reward_since: Optional[datetime] = None
     ) -> PetState:
         """
         Apply positive stat changes based on GitHub activity.
@@ -135,8 +144,14 @@ class GameEngine:
         new_happiness = pet.happiness
         new_xp = pet.xp
         
-        # Check for commits today
-        today = date.today()
+        # Check for commits today. On regular syncs this bonus is awarded once
+        # per day; initial syncs pass reward_since=None and can receive it.
+        today = (current_time or datetime.utcnow()).date()
+        reward_since = (
+            self._as_naive_utc(reward_since)
+            if reward_since is not None
+            else None
+        )
         commits_today = 0
         
         for day in contribution_data.contribution_days:
@@ -145,7 +160,10 @@ class GameEngine:
                 break
         
         # Apply commit boosts if there are commits today
-        if commits_today > 0:
+        commit_bonus_already_awarded = (
+            reward_since is not None and reward_since.date() >= today
+        )
+        if commits_today > 0 and not commit_bonus_already_awarded:
             new_hunger += self.COMMIT_HUNGER_BOOST
             new_happiness += self.COMMIT_HAPPINESS_BOOST
         
@@ -154,6 +172,10 @@ class GameEngine:
         
         for event in recent_activity:
             if event.type == "PullRequestEvent":
+                event_time = self._as_naive_utc(event.created_at)
+                if reward_since is not None and event_time <= reward_since:
+                    continue
+
                 # Check if the PR was merged
                 if event.metadata.get("action") == "closed" and event.metadata.get("merged"):
                     merged_pr_count += 1
@@ -248,7 +270,8 @@ class GameEngine:
         pet: PetState,
         contribution_data: ContributionData,
         recent_activity: List[ActivityEvent],
-        current_time: datetime
+        current_time: datetime,
+        initial_sync: bool = False
     ) -> PetState:
         """
         Main orchestration method that updates pet state based on time and activity.
@@ -270,15 +293,25 @@ class GameEngine:
         Returns:
             Updated pet state with all calculations applied
         """
+        last_updated = self._as_naive_utc(pet.last_updated)
+        current_time = self._as_naive_utc(current_time)
+
         # Calculate hours elapsed since last update
-        time_delta = current_time - pet.last_updated
+        time_delta = current_time - last_updated
         hours_elapsed = time_delta.total_seconds() / 3600.0
         
         # Apply time decay based on elapsed time
         pet = self.calculate_time_decay(pet, hours_elapsed)
         
         # Apply activity boosts from GitHub data
-        pet = self.apply_activity_boosts(pet, contribution_data, recent_activity)
+        reward_since = None if initial_sync else last_updated
+        pet = self.apply_activity_boosts(
+            pet,
+            contribution_data,
+            recent_activity,
+            current_time=current_time,
+            reward_since=reward_since
+        )
         
         # Calculate days since last activity for inactivity penalties
         days_inactive = self._calculate_days_inactive(contribution_data, current_time)

@@ -422,3 +422,143 @@ def test_apply_activity_boosts_pr_not_merged():
     assert updated_pet.hunger == 40
     assert updated_pet.happiness == 50
     assert updated_pet.xp == 0
+
+
+def test_update_pet_does_not_reward_same_activity_twice():
+    """Test repeated syncs do not grant XP/commit boosts for old activity."""
+    from datetime import date
+    from models.github_models import ContributionData, ContributionDay, ActivityEvent
+
+    engine = GameEngine()
+    first_sync_time = datetime(2026, 5, 6, 12, 0, 0)
+    second_sync_time = first_sync_time + timedelta(minutes=10)
+
+    pet = PetState(
+        username="testuser",
+        hunger=50,
+        happiness=50,
+        health=100,
+        energy=100,
+        level=0,
+        xp=0,
+        stage=PetStage.EGG,
+        last_updated=first_sync_time - timedelta(days=1)
+    )
+    contribution_data = ContributionData(
+        username="testuser",
+        total_commits=1,
+        contribution_days=[
+            ContributionDay(date=date(2026, 5, 6), count=1)
+        ]
+    )
+    recent_activity = [
+        ActivityEvent(
+            type="PullRequestEvent",
+            created_at=first_sync_time - timedelta(minutes=1),
+            metadata={"action": "closed", "merged": True}
+        )
+    ]
+
+    first_update = engine.update_pet(
+        pet,
+        contribution_data,
+        recent_activity,
+        first_sync_time
+    )
+    second_update = engine.update_pet(
+        first_update,
+        contribution_data,
+        recent_activity,
+        second_sync_time
+    )
+
+    assert first_update.xp == 20
+    assert second_update.xp == 20
+    assert second_update.happiness < first_update.happiness
+    assert second_update.hunger < first_update.hunger
+
+
+def test_initial_sync_rewards_existing_recent_activity():
+    """Test an initial sync can reward today's commits and current recent PRs."""
+    from models.github_models import ContributionData, ContributionDay, ActivityEvent
+
+    engine = GameEngine()
+    current_time = datetime(2026, 5, 6, 12, 0, 0)
+    pet = PetState(
+        username="testuser",
+        hunger=50,
+        happiness=50,
+        health=100,
+        energy=100,
+        level=0,
+        xp=0,
+        stage=PetStage.EGG,
+        last_updated=current_time
+    )
+    contribution_data = ContributionData(
+        username="testuser",
+        total_commits=1,
+        contribution_days=[
+            ContributionDay(date=current_time.date(), count=1)
+        ]
+    )
+    recent_activity = [
+        ActivityEvent(
+            type="PullRequestEvent",
+            created_at=current_time - timedelta(hours=1),
+            metadata={"action": "closed", "merged": True}
+        )
+    ]
+
+    updated_pet = engine.update_pet(
+        pet,
+        contribution_data,
+        recent_activity,
+        current_time,
+        initial_sync=True
+    )
+
+    assert updated_pet.hunger == 60
+    assert updated_pet.happiness == 65
+    assert updated_pet.xp == 20
+
+
+def test_activity_reward_cutoff_handles_timezone_aware_events():
+    """Test aware GitHub timestamps compare cleanly with naive UTC state."""
+    from datetime import timezone
+    from models.github_models import ContributionData, ActivityEvent
+
+    engine = GameEngine()
+    sync_time = datetime(2026, 5, 6, 12, 0, 0)
+    pet = PetState(
+        username="testuser",
+        hunger=50,
+        happiness=50,
+        health=100,
+        energy=100,
+        level=0,
+        xp=20,
+        stage=PetStage.EGG,
+        last_updated=sync_time
+    )
+    contribution_data = ContributionData(
+        username="testuser",
+        total_commits=0,
+        contribution_days=[]
+    )
+    recent_activity = [
+        ActivityEvent(
+            type="PullRequestEvent",
+            created_at=sync_time.replace(tzinfo=timezone.utc),
+            metadata={"action": "closed", "merged": True}
+        )
+    ]
+
+    updated_pet = engine.update_pet(
+        pet,
+        contribution_data,
+        recent_activity,
+        sync_time + timedelta(minutes=10)
+    )
+
+    assert updated_pet.xp == 20

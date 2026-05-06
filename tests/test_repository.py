@@ -6,6 +6,7 @@ import pytest
 from datetime import datetime
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from db.models import Base, PetDB
 from db.repository import PetRepository
@@ -129,3 +130,24 @@ def test_create_duplicate_pet_raises_error(repository):
     
     with pytest.raises(IntegrityError):
         repository.create_pet("testuser")
+
+
+def test_repository_can_use_session_factory():
+    """Test repository opens per-operation sessions from a factory."""
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(engine)
+    SessionLocal = sessionmaker(bind=engine)
+    repository = PetRepository(session_factory=SessionLocal)
+
+    pet = repository.create_pet("factoryuser")
+    pet.hunger = 25
+    repository.update_pet(pet)
+
+    fetched_pet = repository.get_pet("factoryuser")
+
+    assert fetched_pet is not None
+    assert fetched_pet.hunger == 25

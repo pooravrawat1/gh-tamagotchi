@@ -14,7 +14,7 @@ from config.settings import get_settings, Settings
 from services.github_service import GitHubService
 from services.game_engine import GameEngine
 from db.repository import PetRepository
-from db.database import get_db_session
+from db.database import get_session_factory
 from rendering.svg_renderer import SVGRenderer
 from utils.cache import CacheService
 from services.pet_service import PetService
@@ -124,8 +124,7 @@ def get_pet_repository() -> PetRepository:
     
     if _pet_repository is None:
         logger.debug("Creating new PetRepository")
-        with get_db_session() as session:
-            _pet_repository = PetRepository(session)
+        _pet_repository = PetRepository(session_factory=get_session_factory())
         logger.info("PetRepository initialized")
     
     return _pet_repository
@@ -235,6 +234,17 @@ def get_pet_service(
         logger.info("PetService initialized")
     
     return _pet_service
+
+
+async def get_pet_service_dependency() -> PetService:
+    """
+    FastAPI dependency for PetService.
+
+    This async wrapper ensures the GitHub service can be created even when a
+    request path is exercised without the startup event pre-warming services.
+    """
+    github_service = await get_github_service()
+    return get_pet_service(github_service=github_service)
 
 
 def reset_dependencies() -> None:

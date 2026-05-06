@@ -85,6 +85,31 @@ class TestValidateUserExists:
         
         with pytest.raises(GitHubRateLimitError):
             await github_service.validate_user_exists("octocat")
+
+    @pytest.mark.asyncio
+    async def test_validate_user_forbidden_is_not_rate_limit(self, github_service):
+        """Test a non-rate-limit 403 is surfaced as a GitHub API error."""
+        mock_client = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.status_code = 403
+        mock_response.headers = {"X-RateLimit-Remaining": "100"}
+        mock_response.json.return_value = {
+            "message": "Resource not accessible by integration"
+        }
+        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "403 Forbidden",
+            request=MagicMock(),
+            response=mock_response
+        )
+        mock_client.get.return_value = mock_response
+
+        github_service.http_client = mock_client
+
+        with pytest.raises(GitHubAPIError) as exc_info:
+            await github_service.validate_user_exists("octocat")
+
+        assert exc_info.value.status_code == 403
+        assert "Resource not accessible" in str(exc_info.value)
     
     @pytest.mark.asyncio
     async def test_validate_user_timeout(self, github_service):

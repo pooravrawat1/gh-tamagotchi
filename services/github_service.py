@@ -139,8 +139,8 @@ class GitHubService:
             except httpx.HTTPStatusError as e:
                 status_code = e.response.status_code
                 
-                # Handle rate limit (403 with rate limit message)
-                if status_code == 403:
+                # Handle rate limit only when GitHub indicates rate limiting.
+                if self._response_indicates_rate_limit(e.response):
                     rate_limit_reset = e.response.headers.get("X-RateLimit-Reset")
                     logger.error(f"GitHub API rate limit exceeded")
                     raise GitHubRateLimitError(reset_time=rate_limit_reset)
@@ -149,6 +149,14 @@ class GitHubService:
                 if status_code == 404:
                     logger.debug(f"GitHub resource not found (404)")
                     raise GitHubUserNotFoundError(username="unknown")
+
+                if status_code == 403:
+                    message = self._response_error_message(e.response)
+                    logger.error(f"GitHub API forbidden response: {message or status_code}")
+                    raise GitHubAPIError(
+                        status_code=status_code,
+                        message=message or "Forbidden"
+                    )
                 
                 # Retry on transient errors (5xx, 429, 408, 500, 502, 503, 504)
                 if status_code in self.TRANSIENT_STATUS_CODES:
@@ -164,7 +172,10 @@ class GitHubService:
                 
                 # Don't retry on other 4xx errors
                 logger.error(f"GitHub API error {status_code}")
-                raise GitHubAPIError(status_code=status_code)
+                raise GitHubAPIError(
+                    status_code=status_code,
+                    message=self._response_error_message(e.response)
+                )
             
             except httpx.RequestError as e:
                 # Network errors are transient, retry them
@@ -193,12 +204,43 @@ class GitHubService:
         Raises:
             GitHubRateLimitError: If rate limit is exceeded
         """
-        remaining = response.headers.get("X-RateLimit-Remaining")
         reset_time = response.headers.get("X-RateLimit-Reset")
         
-        if remaining is not None and int(remaining) == 0:
+        if self._response_indicates_rate_limit(response):
             logger.error("GitHub API rate limit exhausted")
             raise GitHubRateLimitError(reset_time=reset_time)
+
+    def _response_indicates_rate_limit(self, response: httpx.Response) -> bool:
+        """Return True when status/header/body indicate a GitHub rate limit."""
+        remaining = response.headers.get("X-RateLimit-Remaining")
+        if remaining is not None:
+            try:
+                if int(remaining) == 0:
+                    return True
+            except (TypeError, ValueError):
+                logger.debug(f"Unexpected rate limit remaining header: {remaining}")
+
+        if response.status_code == 429:
+            return True
+
+        message = self._response_error_message(response).lower()
+        return "rate limit" in message
+
+    @staticmethod
+    def _response_error_message(response: httpx.Response) -> str:
+        """Extract a useful error message from a GitHub HTTP response."""
+        try:
+            data = response.json()
+        except Exception:
+            data = None
+
+        if isinstance(data, dict):
+            message = data.get("message")
+            if isinstance(message, str):
+                return message
+
+        text = getattr(response, "text", "")
+        return text if isinstance(text, str) else str(text)
     
     def _extract_graphql_errors(self, data: dict) -> Optional[str]:
         """

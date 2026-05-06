@@ -5,9 +5,10 @@ This module provides the data access layer for pet persistence,
 implementing CRUD operations and business logic for pet management.
 """
 
+from contextlib import contextmanager
 from datetime import datetime
-from typing import Optional
-from sqlalchemy.orm import Session
+from typing import Generator, Optional
+from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.exc import IntegrityError
 
 from db.models import PetDB
@@ -23,14 +24,44 @@ class PetRepository:
     and business logic models (PetState).
     """
     
-    def __init__(self, session: Session):
+    def __init__(
+        self,
+        session: Optional[Session] = None,
+        session_factory: Optional[sessionmaker] = None
+    ):
         """
         Initialize repository with database session.
         
         Args:
             session: SQLAlchemy session for database operations
+            session_factory: Optional session factory for per-operation sessions
         """
+        if session is None and session_factory is None:
+            raise ValueError("Either session or session_factory must be provided")
+
         self.session = session
+        self.session_factory = session_factory
+
+    @contextmanager
+    def _session_scope(self) -> Generator[Session, None, None]:
+        """
+        Provide a session for one repository operation.
+
+        Tests can still pass a direct session, while the application can pass a
+        factory so requests do not share a long-lived Session object.
+        """
+        if self.session_factory is None:
+            yield self.session
+            return
+
+        session = self.session_factory()
+        try:
+            yield session
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
     
     def get_pet(self, username: str) -> Optional[PetState]:
         """
@@ -42,13 +73,14 @@ class PetRepository:
         Returns:
             PetState if found, None otherwise
         """
-        pet_db = self.session.query(PetDB).filter(PetDB.username == username).first()
+        with self._session_scope() as session:
+            pet_db = session.query(PetDB).filter(PetDB.username == username).first()
         
-        if pet_db is None:
-            return None
+            if pet_db is None:
+                return None
         
-        # Convert ORM model to Pydantic model
-        return PetState.model_validate(pet_db)
+            # Convert ORM model to Pydantic model while the session is open.
+            return PetState.model_validate(pet_db)
     
     def create_pet(self, username: str) -> PetState:
         """
@@ -88,11 +120,12 @@ class PetRepository:
             created_at=current_time
         )
         
-        self.session.add(pet_db)
-        self.session.commit()
-        self.session.refresh(pet_db)
-        
-        return PetState.model_validate(pet_db)
+        with self._session_scope() as session:
+            session.add(pet_db)
+            session.commit()
+            session.refresh(pet_db)
+
+            return PetState.model_validate(pet_db)
     
     def update_pet(self, pet: PetState) -> PetState:
         """
@@ -110,25 +143,26 @@ class PetRepository:
         Raises:
             ValueError: If pet with username doesn't exist
         """
-        pet_db = self.session.query(PetDB).filter(PetDB.username == pet.username).first()
+        with self._session_scope() as session:
+            pet_db = session.query(PetDB).filter(PetDB.username == pet.username).first()
         
-        if pet_db is None:
-            raise ValueError(f"Pet with username '{pet.username}' not found")
+            if pet_db is None:
+                raise ValueError(f"Pet with username '{pet.username}' not found")
         
-        # Update all fields
-        pet_db.hunger = pet.hunger
-        pet_db.happiness = pet.happiness
-        pet_db.health = pet.health
-        pet_db.energy = pet.energy
-        pet_db.level = pet.level
-        pet_db.xp = pet.xp
-        pet_db.stage = pet.stage
-        pet_db.last_updated = pet.last_updated
+            # Update all fields
+            pet_db.hunger = pet.hunger
+            pet_db.happiness = pet.happiness
+            pet_db.health = pet.health
+            pet_db.energy = pet.energy
+            pet_db.level = pet.level
+            pet_db.xp = pet.xp
+            pet_db.stage = pet.stage
+            pet_db.last_updated = pet.last_updated
         
-        self.session.commit()
-        self.session.refresh(pet_db)
+            session.commit()
+            session.refresh(pet_db)
         
-        return PetState.model_validate(pet_db)
+            return PetState.model_validate(pet_db)
     
     def get_or_create_pet(self, username: str) -> PetState:
         """
