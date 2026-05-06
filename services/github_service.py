@@ -360,6 +360,14 @@ class GitHubService:
         query($userName:String!, $from:DateTime!, $to:DateTime!) {
             user(login: $userName) {
                 contributionsCollection(from: $from, to: $to) {
+                    commitContributionsByRepository(maxRepositories: 100) {
+                        contributions(first: 100) {
+                            nodes {
+                                occurredAt
+                                commitCount
+                            }
+                        }
+                    }
                     contributionCalendar {
                         totalContributions
                         weeks {
@@ -426,6 +434,32 @@ class GitHubService:
                             count=day_data["contributionCount"],
                         )
                     )
+
+            # Parse commit-specific contribution days from all repositories.
+            commit_counts_by_date = {}
+            commit_contributions = contributions_collection.get(
+                "commitContributionsByRepository",
+                []
+            )
+            for repo_contribution in commit_contributions:
+                contributions = repo_contribution.get("contributions", {})
+                for node in contributions.get("nodes", []) or []:
+                    occurred_at = node.get("occurredAt")
+                    if not occurred_at:
+                        continue
+
+                    contribution_date = datetime.fromisoformat(
+                        occurred_at.replace("Z", "+00:00")
+                    ).date()
+                    commit_counts_by_date[contribution_date] = (
+                        commit_counts_by_date.get(contribution_date, 0)
+                        + node.get("commitCount", 0)
+                    )
+
+            commit_days = [
+                ContributionDay(date=commit_date, count=count)
+                for commit_date, count in sorted(commit_counts_by_date.items())
+            ]
             
             logger.debug(
                 f"Fetched {total_contributions} contributions for '{username}' "
@@ -436,6 +470,7 @@ class GitHubService:
                 username=username,
                 total_commits=total_contributions,
                 contribution_days=contribution_days,
+                commit_days=commit_days,
             )
         
         try:
@@ -454,7 +489,7 @@ class GitHubService:
         Fetch recent activity events via GitHub REST API.
         
         Retrieves the user's recent events from the GitHub REST API and filters
-        for relevant event types (PushEvent, PullRequestEvent).
+        for relevant pull request events.
         
         Args:
             username: GitHub username to fetch activity for
@@ -476,8 +511,9 @@ class GitHubService:
         
         username = username.strip()
         
-        # Relevant event types for pet activity
-        relevant_event_types = {"PushEvent", "PullRequestEvent"}
+        # Relevant event types for pet activity. Commit rewards come from
+        # GraphQL commit contributions, so REST events only need PR data.
+        relevant_event_types = {"PullRequestEvent"}
         
         async def _fetch_activity() -> List[ActivityEvent]:
             client = await self._get_client()
@@ -520,12 +556,7 @@ class GitHubService:
                     # Extract relevant metadata based on event type
                     metadata = {}
                     
-                    if event_type == "PushEvent":
-                        payload = event_data.get("payload", {})
-                        metadata["commits"] = payload.get("size", 0)
-                        metadata["ref"] = payload.get("ref", "")
-                    
-                    elif event_type == "PullRequestEvent":
+                    if event_type == "PullRequestEvent":
                         payload = event_data.get("payload", {})
                         metadata["action"] = payload.get("action", "")
                         pr_data = payload.get("pull_request", {})

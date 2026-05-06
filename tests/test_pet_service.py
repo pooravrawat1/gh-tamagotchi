@@ -34,6 +34,9 @@ class StubGitHubService:
             contribution_days=[
                 ContributionDay(date=date.today(), count=1)
             ],
+            commit_days=[
+                ContributionDay(date=date.today(), count=1)
+            ],
         )
 
     async def get_recent_activity(self, username, limit=30):

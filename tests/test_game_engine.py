@@ -120,7 +120,7 @@ def test_calculate_time_decay_zero_hours():
 
 
 def test_apply_activity_boosts_commits_today():
-    """Test activity boosts when there are commits today."""
+    """Test activity boosts when there are commit contributions today."""
     from datetime import date
     from models.github_models import ContributionData, ContributionDay
     
@@ -138,17 +138,20 @@ def test_apply_activity_boosts_commits_today():
         last_updated=datetime.utcnow()
     )
     
-    # Create contribution data with commits today
     contribution_data = ContributionData(
         username="testuser",
-        total_commits=5,
-        contribution_days=[
+        total_commits=0,
+        contribution_days=[],
+        commit_days=[
             ContributionDay(date=date.today(), count=5)
         ]
     )
     
-    # Apply activity boosts with no recent activity
-    updated_pet = engine.apply_activity_boosts(pet, contribution_data, [])
+    updated_pet = engine.apply_activity_boosts(
+        pet,
+        contribution_data,
+        []
+    )
     
     # Verify boosts applied
     # hunger: 40 + 10 = 50
@@ -156,6 +159,38 @@ def test_apply_activity_boosts_commits_today():
     # happiness: 50 + 5 = 55
     assert updated_pet.happiness == 55
     # xp should remain unchanged
+    assert updated_pet.xp == 0
+
+
+def test_contribution_calendar_without_commit_day_does_not_grant_commit_boost():
+    """Test generic contribution calendar activity does not count as commits."""
+    from datetime import date
+    from models.github_models import ContributionData, ContributionDay
+
+    engine = GameEngine()
+    pet = PetState(
+        username="testuser",
+        hunger=40,
+        happiness=50,
+        health=100,
+        energy=80,
+        level=0,
+        xp=0,
+        stage=PetStage.EGG,
+        last_updated=datetime.utcnow()
+    )
+    contribution_data = ContributionData(
+        username="testuser",
+        total_commits=5,
+        contribution_days=[
+            ContributionDay(date=date.today(), count=5)
+        ]
+    )
+
+    updated_pet = engine.apply_activity_boosts(pet, contribution_data, [])
+
+    assert updated_pet.hunger == 40
+    assert updated_pet.happiness == 50
     assert updated_pet.xp == 0
 
 
@@ -207,7 +242,7 @@ def test_apply_activity_boosts_merged_pr():
 
 
 def test_apply_activity_boosts_commits_and_merged_pr():
-    """Test activity boosts when there are both commits today and merged PRs."""
+    """Test activity boosts when there are commit contributions and merged PRs."""
     from datetime import date
     from models.github_models import ContributionData, ContributionDay, ActivityEvent
     
@@ -225,16 +260,15 @@ def test_apply_activity_boosts_commits_and_merged_pr():
         last_updated=datetime.utcnow()
     )
     
-    # Create contribution data with commits today
     contribution_data = ContributionData(
         username="testuser",
-        total_commits=5,
-        contribution_days=[
+        total_commits=0,
+        contribution_days=[],
+        commit_days=[
             ContributionDay(date=date.today(), count=5)
         ]
     )
     
-    # Create activity with a merged PR
     recent_activity = [
         ActivityEvent(
             type="PullRequestEvent",
@@ -326,17 +360,20 @@ def test_apply_activity_boosts_clamping_at_100():
         last_updated=datetime.utcnow()
     )
     
-    # Create contribution data with commits today
     contribution_data = ContributionData(
         username="testuser",
-        total_commits=5,
-        contribution_days=[
+        total_commits=0,
+        contribution_days=[],
+        commit_days=[
             ContributionDay(date=date.today(), count=5)
         ]
     )
     
-    # Apply activity boosts
-    updated_pet = engine.apply_activity_boosts(pet, contribution_data, [])
+    updated_pet = engine.apply_activity_boosts(
+        pet,
+        contribution_data,
+        []
+    )
     
     # Verify stats are clamped at 100
     # hunger: 95 + 10 = 105 -> clamped to 100
@@ -347,7 +384,6 @@ def test_apply_activity_boosts_clamping_at_100():
 
 def test_apply_activity_boosts_no_activity():
     """Test that no boosts are applied when there's no activity."""
-    from datetime import date
     from models.github_models import ContributionData
     
     engine = GameEngine()
@@ -382,7 +418,6 @@ def test_apply_activity_boosts_no_activity():
 
 def test_apply_activity_boosts_pr_not_merged():
     """Test that no boosts are applied for PRs that are not merged."""
-    from datetime import date
     from models.github_models import ContributionData, ActivityEvent
     
     engine = GameEngine()
@@ -426,7 +461,6 @@ def test_apply_activity_boosts_pr_not_merged():
 
 def test_update_pet_does_not_reward_same_activity_twice():
     """Test repeated syncs do not grant XP/commit boosts for old activity."""
-    from datetime import date
     from models.github_models import ContributionData, ContributionDay, ActivityEvent
 
     engine = GameEngine()
@@ -448,7 +482,10 @@ def test_update_pet_does_not_reward_same_activity_twice():
         username="testuser",
         total_commits=1,
         contribution_days=[
-            ContributionDay(date=date(2026, 5, 6), count=1)
+            ContributionDay(date=first_sync_time.date(), count=1)
+        ],
+        commit_days=[
+            ContributionDay(date=first_sync_time.date(), count=3)
         ]
     )
     recent_activity = [
@@ -500,6 +537,9 @@ def test_initial_sync_rewards_existing_recent_activity():
         total_commits=1,
         contribution_days=[
             ContributionDay(date=current_time.date(), count=1)
+        ],
+        commit_days=[
+            ContributionDay(date=current_time.date(), count=3)
         ]
     )
     recent_activity = [

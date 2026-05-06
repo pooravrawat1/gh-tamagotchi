@@ -6,7 +6,7 @@ The schema is designed to be compatible with both SQLite and PostgreSQL.
 """
 
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, CheckConstraint, Index
+from sqlalchemy import Column, Integer, String, Date, DateTime, CheckConstraint, Index
 from sqlalchemy.ext.declarative import declarative_base
 
 
@@ -30,6 +30,7 @@ class PetDB(Base):
         level: Pet level (non-negative)
         xp: Experience points (non-negative)
         stage: Evolution stage (egg, baby, teen, adult, legendary)
+        last_commit_reward_date: Last date the daily commit reward was applied
         last_updated: Timestamp of last update (indexed)
         created_at: Timestamp of pet creation
     """
@@ -53,6 +54,7 @@ class PetDB(Base):
     stage = Column(String, nullable=False, default='egg')
     
     # Timestamps
+    last_commit_reward_date = Column(Date, nullable=True)
     last_updated = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     

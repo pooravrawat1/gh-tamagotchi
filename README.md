@@ -408,10 +408,14 @@ After decay, your recent GitHub activity can boost stats:
 
 **Commits today**
 
-If you have at least **1 commit today**:
+If GitHub reports at least **1 commit contribution today**:
 
 - Hunger **+10** (less hungry)
 - Happiness **+5**
+
+This uses GitHub's commit-specific contribution data, not the generic
+contribution calendar. The contribution calendar is still used to decide
+inactivity penalties.
 
 **Merged pull requests**
 

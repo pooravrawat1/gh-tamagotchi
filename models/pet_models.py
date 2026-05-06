@@ -5,8 +5,9 @@ This module defines the Pydantic models used throughout the application
 for representing pet state and validation.
 """
 
-from datetime import datetime
+from datetime import date as date_type, datetime
 from enum import Enum
+from typing import Optional
 from pydantic import BaseModel, Field
 
 
@@ -34,6 +35,10 @@ class PetState(BaseModel):
     level: int = Field(ge=0, default=0, description="Pet level")
     xp: int = Field(ge=0, default=0, description="Experience points")
     stage: PetStage = Field(default=PetStage.EGG, description="Evolution stage")
+    last_commit_reward_date: Optional[date_type] = Field(
+        default=None,
+        description="Last date the daily pushed-commit reward was applied"
+    )
     last_updated: datetime = Field(description="Last update timestamp")
     
     class Config:

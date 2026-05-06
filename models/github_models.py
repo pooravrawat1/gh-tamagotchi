@@ -28,15 +28,19 @@ class ContributionData(BaseModel):
         default_factory=list,
         description="List of contribution days with counts"
     )
+    commit_days: List[ContributionDay] = Field(
+        default_factory=list,
+        description="List of days with commit-specific contribution counts"
+    )
 
 
 class ActivityEvent(BaseModel):
     """
     Represents a GitHub activity event from the REST API.
     
-    Captures events like PushEvent, PullRequestEvent, etc.
+    Captures GitHub activity events used by the game engine.
     """
-    type: str = Field(description="Event type (e.g., PushEvent, PullRequestEvent)")
+    type: str = Field(description="Event type (e.g., PullRequestEvent)")
     created_at: datetime = Field(description="Timestamp when event was created")
     metadata: Dict[str, Any] = Field(
         default_factory=dict,

@@ -3,12 +3,13 @@ Tests for the PetRepository class.
 """
 
 import pytest
-from datetime import datetime
-from sqlalchemy import create_engine
+from datetime import date, datetime
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from db.models import Base, PetDB
+from db.database import _add_missing_columns
 from db.repository import PetRepository
 from models.pet_models import PetState
 
@@ -42,6 +43,7 @@ def test_create_pet(repository):
     assert pet.level == 0
     assert pet.xp == 0
     assert pet.stage == "egg"
+    assert pet.last_commit_reward_date is None
     assert isinstance(pet.last_updated, datetime)
 
 
@@ -70,6 +72,7 @@ def test_update_pet(repository):
     pet.level = 5
     pet.xp = 500
     pet.stage = "baby"
+    pet.last_commit_reward_date = date(2026, 5, 6)
     
     updated_pet = repository.update_pet(pet)
     
@@ -78,6 +81,7 @@ def test_update_pet(repository):
     assert updated_pet.level == 5
     assert updated_pet.xp == 500
     assert updated_pet.stage == "baby"
+    assert updated_pet.last_commit_reward_date == date(2026, 5, 6)
 
 
 def test_update_pet_not_exists(repository):
@@ -151,3 +155,31 @@ def test_repository_can_use_session_factory():
 
     assert fetched_pet is not None
     assert fetched_pet.hunger == 25
+
+
+def test_add_missing_columns_adds_commit_reward_date_to_existing_schema():
+    """Test lightweight schema upgrade handles older pets tables."""
+    engine = create_engine("sqlite:///:memory:")
+    with engine.begin() as conn:
+        conn.execute(text("""
+            CREATE TABLE pets (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                hunger INTEGER NOT NULL DEFAULT 50,
+                happiness INTEGER NOT NULL DEFAULT 50,
+                health INTEGER NOT NULL DEFAULT 100,
+                energy INTEGER NOT NULL DEFAULT 100,
+                level INTEGER NOT NULL DEFAULT 0,
+                xp INTEGER NOT NULL DEFAULT 0,
+                stage TEXT NOT NULL DEFAULT 'egg',
+                last_updated TIMESTAMP NOT NULL,
+                created_at TIMESTAMP NOT NULL
+            )
+        """))
+
+    _add_missing_columns(engine)
+
+    columns = {
+        column["name"] for column in inspect(engine).get_columns("pets")
+    }
+    assert "last_commit_reward_date" in columns

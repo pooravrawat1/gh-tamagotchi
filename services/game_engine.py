@@ -144,8 +144,8 @@ class GameEngine:
         new_happiness = pet.happiness
         new_xp = pet.xp
         
-        # Check for commits today. On regular syncs this bonus is awarded once
-        # per day; initial syncs pass reward_since=None and can receive it.
+        # Check for GitHub-counted commit contributions today. This avoids
+        # depending on the shallow REST events feed for commit rewards.
         today = (current_time or datetime.utcnow()).date()
         reward_since = (
             self._as_naive_utc(reward_since)
@@ -153,19 +153,23 @@ class GameEngine:
             else None
         )
         commits_today = 0
-        
-        for day in contribution_data.contribution_days:
+
+        for day in contribution_data.commit_days:
             if day.date == today:
                 commits_today = day.count
                 break
-        
+
         # Apply commit boosts if there are commits today
+        last_commit_reward_date = pet.last_commit_reward_date
         commit_bonus_already_awarded = (
-            reward_since is not None and reward_since.date() >= today
+            last_commit_reward_date is not None
+            and last_commit_reward_date >= today
         )
+        updated_fields = {}
         if commits_today > 0 and not commit_bonus_already_awarded:
             new_hunger += self.COMMIT_HUNGER_BOOST
             new_happiness += self.COMMIT_HAPPINESS_BOOST
+            updated_fields["last_commit_reward_date"] = today
         
         # Check for merged PRs in recent activity
         merged_pr_count = 0
@@ -187,11 +191,12 @@ class GameEngine:
         
         # Clamp stats to valid range [0, 100]
         # Note: XP is not clamped as it can grow indefinitely
-        return pet.model_copy(update={
+        updated_fields.update({
             'hunger': self.clamp_stat(new_hunger),
             'happiness': self.clamp_stat(new_happiness),
             'xp': new_xp
         })
+        return pet.model_copy(update=updated_fields)
     
     def apply_inactivity_penalties(self, pet: PetState, days_inactive: int) -> PetState:
         """

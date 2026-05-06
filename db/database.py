@@ -7,7 +7,7 @@ and table initialization functions. It supports both SQLite and PostgreSQL.
 
 from contextlib import contextmanager
 from typing import Generator, Optional
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
@@ -133,6 +133,30 @@ def create_tables() -> None:
     """
     engine = get_engine()
     Base.metadata.create_all(bind=engine)
+    _add_missing_columns(engine)
+
+
+def _add_missing_columns(engine: Engine) -> None:
+    """
+    Add nullable columns introduced after the initial MVP schema.
+
+    This is intentionally small and conservative. It keeps existing SQLite
+    deployments usable without a full migration framework.
+    """
+    inspector = inspect(engine)
+    if "pets" not in inspector.get_table_names():
+        return
+
+    existing_columns = {
+        column["name"] for column in inspector.get_columns("pets")
+    }
+    if "last_commit_reward_date" in existing_columns:
+        return
+
+    with engine.begin() as conn:
+        conn.execute(
+            text("ALTER TABLE pets ADD COLUMN last_commit_reward_date DATE")
+        )
 
 
 def drop_tables() -> None:

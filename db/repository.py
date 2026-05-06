@@ -157,6 +157,7 @@ class PetRepository:
             pet_db.level = pet.level
             pet_db.xp = pet.xp
             pet_db.stage = pet.stage
+            pet_db.last_commit_reward_date = pet.last_commit_reward_date
             pet_db.last_updated = pet.last_updated
         
             session.commit()

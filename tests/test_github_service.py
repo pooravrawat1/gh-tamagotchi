@@ -182,6 +182,26 @@ class TestGetContributionData:
             "data": {
                 "user": {
                     "contributionsCollection": {
+                        "commitContributionsByRepository": [
+                            {
+                                "contributions": {
+                                    "nodes": [
+                                        {
+                                            "occurredAt": "2024-01-01T12:00:00Z",
+                                            "commitCount": 2
+                                        },
+                                        {
+                                            "occurredAt": "2024-01-01T18:00:00Z",
+                                            "commitCount": 3
+                                        },
+                                        {
+                                            "occurredAt": "2024-01-02T09:00:00Z",
+                                            "commitCount": 4
+                                        }
+                                    ]
+                                }
+                            }
+                        ],
                         "contributionCalendar": {
                             "totalContributions": 42,
                             "weeks": [
@@ -213,6 +233,9 @@ class TestGetContributionData:
         assert result.total_commits == 42
         assert len(result.contribution_days) == 2
         assert result.contribution_days[0].count == 5
+        assert len(result.commit_days) == 2
+        assert result.commit_days[0].count == 5
+        assert result.commit_days[1].count == 4
     
     @pytest.mark.asyncio
     async def test_get_contribution_data_user_not_found(self, github_service):
@@ -279,6 +302,7 @@ class TestGetContributionData:
                     "data": {
                         "user": {
                             "contributionsCollection": {
+                                "commitContributionsByRepository": [],
                                 "contributionCalendar": {
                                     "totalContributions": 10,
                                     "weeks": []
@@ -310,14 +334,6 @@ class TestGetRecentActivity:
         mock_response.headers = {}
         mock_response.json.return_value = [
             {
-                "type": "PushEvent",
-                "created_at": "2024-01-15T10:30:00Z",
-                "payload": {
-                    "size": 3,
-                    "ref": "refs/heads/main"
-                }
-            },
-            {
                 "type": "PullRequestEvent",
                 "created_at": "2024-01-15T09:00:00Z",
                 "payload": {
@@ -335,11 +351,9 @@ class TestGetRecentActivity:
         
         result = await github_service.get_recent_activity("octocat", limit=30)
         
-        assert len(result) == 2
-        assert result[0].type == "PushEvent"
-        assert result[0].metadata["commits"] == 3
-        assert result[1].type == "PullRequestEvent"
-        assert result[1].metadata["merged"] is True
+        assert len(result) == 1
+        assert result[0].type == "PullRequestEvent"
+        assert result[0].metadata["merged"] is True
     
     @pytest.mark.asyncio
     async def test_get_recent_activity_rate_limit(self, github_service):
@@ -392,7 +406,7 @@ class TestGetRecentActivity:
         mock_response.headers = {}
         mock_response.json.return_value = [
             {
-                "type": "PushEvent",
+                "type": "PushEvent",  # Should be filtered out
                 "created_at": "2024-01-15T10:30:00Z",
                 "payload": {"size": 1, "ref": "main"}
             },
@@ -416,9 +430,9 @@ class TestGetRecentActivity:
         
         result = await github_service.get_recent_activity("octocat")
         
-        # Should only have 2 events (PushEvent and PullRequestEvent)
-        assert len(result) == 2
-        assert all(e.type in {"PushEvent", "PullRequestEvent"} for e in result)
+        # Should only have the PullRequestEvent
+        assert len(result) == 1
+        assert result[0].type == "PullRequestEvent"
     
     @pytest.mark.asyncio
     async def test_get_recent_activity_retry_on_transient_error(self, github_service):
