@@ -1,12 +1,12 @@
 {
   "username": "pooravrawat1",
-  "hunger": 10,
-  "happiness": 5,
+  "hunger": 0,
+  "happiness": 0,
   "health": 0,
   "energy": 0,
   "level": 0,
   "xp": 0,
   "stage": "egg",
   "last_commit_reward_date": "2026-06-27",
-  "last_updated": "2026-06-27T18:59:06.873896"
+  "last_updated": "2026-06-28T02:05:30.645614"
 }
