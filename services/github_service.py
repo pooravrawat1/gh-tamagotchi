@@ -12,7 +12,12 @@ from typing import Optional, List, Callable, TypeVar, Any
 from datetime import datetime, timedelta, date
 import httpx
 
-from models.github_models import ContributionData, ContributionDay, ActivityEvent
+from models.github_models import (
+    ActivityEvent,
+    ContributionData,
+    ContributionDay,
+    GitHubProfileSnapshot,
+)
 from config.settings import Settings
 from services.github_exceptions import (
     GitHubServiceError,
@@ -324,6 +329,293 @@ class GitHubService:
             logger.error(f"Unexpected error validating GitHub user '{username}': {e}")
             raise GitHubServiceError(f"Failed to validate user: {e}")
     
+    async def get_profile_snapshot(
+        self,
+        username: str,
+        now: Optional[datetime] = None,
+    ) -> GitHubProfileSnapshot:
+        """Collect the GitHub facts used to drive one Tamagotchi profile.
+
+        This is the preferred data path for the hosted widget. A single
+        GraphQL query returns a year of activity, profile metadata, repository
+        impact, and language diversity. Lifetime activity is collected in
+        small calendar-year batches afterwards because GitHub bounds a
+        ``contributionsCollection`` date range to one year.
+
+        The legacy contribution/event methods below remain for consumers of the
+        composite Action and for a safe migration path, but new pet updates do
+        not depend on GitHub's shallow public-events feed.
+        """
+        if not username or not username.strip():
+            raise ValueError("Username cannot be empty")
+
+        username = username.strip()
+        collected_at = now or datetime.utcnow()
+        from_date = collected_at.date() - timedelta(days=364)
+        to_date = collected_at.date()
+        query = """
+        query($userName: String!, $from: DateTime!, $to: DateTime!) {
+          user(login: $userName) {
+            login
+            name
+            avatarUrl(size: 160)
+            createdAt
+            followers { totalCount }
+            repositories(
+              ownerAffiliations: OWNER
+              isFork: false
+              first: 100
+              orderBy: {field: STARGAZERS, direction: DESC}
+            ) {
+              totalCount
+              nodes {
+                stargazerCount
+                primaryLanguage { name }
+              }
+            }
+            contributionsCollection(from: $from, to: $to) {
+              totalCommitContributions
+              totalPullRequestContributions
+              totalPullRequestReviewContributions
+              totalIssueContributions
+              commitContributionsByRepository(maxRepositories: 100) {
+                contributions { totalCount }
+                repository {
+                  isFork
+                  isPrivate
+                  primaryLanguage { name }
+                }
+              }
+              contributionCalendar {
+                weeks {
+                  contributionDays {
+                    date
+                    contributionCount
+                  }
+                }
+              }
+            }
+          }
+        }
+        """
+        variables = {
+            "userName": username,
+            "from": f"{from_date}T00:00:00Z",
+            "to": f"{to_date}T23:59:59Z",
+        }
+
+        async def _fetch_snapshot() -> GitHubProfileSnapshot:
+            client = await self._get_client()
+            response = await client.post(
+                self.graphql_url,
+                json={"query": query, "variables": variables},
+                headers=self.graphql_headers,
+            )
+            response.raise_for_status()
+            self._handle_rate_limit_response(response)
+            data = response.json()
+
+            graphql_error = self._extract_graphql_errors(data)
+            if graphql_error:
+                if (
+                    "Could not resolve to a User" in graphql_error
+                    or "not found" in graphql_error.lower()
+                ):
+                    raise GitHubUserNotFoundError(username=username)
+                raise GitHubAPIError(message=graphql_error)
+
+            user_data = data.get("data", {}).get("user")
+            if not user_data:
+                raise GitHubUserNotFoundError(username=username)
+
+            try:
+                collection = user_data.get("contributionsCollection", {})
+                calendar = collection.get("contributionCalendar", {})
+                contribution_days = [
+                    ContributionDay(
+                        date=date.fromisoformat(day_data["date"]),
+                        count=day_data["contributionCount"],
+                    )
+                    for week in calendar.get("weeks", [])
+                    for day_data in week.get("contributionDays", [])
+                ]
+                repositories = user_data.get("repositories", {})
+                repo_nodes = repositories.get("nodes", []) or []
+                languages = {
+                    node["primaryLanguage"]["name"]
+                    for node in repo_nodes
+                    if node.get("primaryLanguage") and node["primaryLanguage"].get("name")
+                }
+                # Owned repositories are not the whole language story. Include
+                # public, non-fork repositories the user has materially worked
+                # in, without letting a one-off drive-by contribution inflate
+                # language diversity.
+                for contribution in collection.get(
+                    "commitContributionsByRepository", []
+                ) or []:
+                    repository = contribution.get("repository") or {}
+                    language = repository.get("primaryLanguage") or {}
+                    commit_count = (
+                        contribution.get("contributions") or {}
+                    ).get("totalCount", 0)
+                    if (
+                        not repository.get("isFork")
+                        and not repository.get("isPrivate")
+                        and language.get("name")
+                        and commit_count >= 3
+                    ):
+                        languages.add(language["name"])
+                languages = sorted(languages)
+                total_stars = sum(
+                    int(node.get("stargazerCount") or 0) for node in repo_nodes
+                )
+                created_at = datetime.fromisoformat(
+                    user_data["createdAt"].replace("Z", "+00:00")
+                )
+            except (KeyError, TypeError, ValueError) as exc:
+                raise GitHubServiceError(
+                    f"Failed to parse profile snapshot for '{username}': {exc}"
+                ) from exc
+
+            recent_active_days = sum(
+                1 for contribution_day in contribution_days
+                if contribution_day.count > 0
+            )
+            recent_commits = collection.get("totalCommitContributions", 0)
+            recent_pull_requests = collection.get("totalPullRequestContributions", 0)
+            recent_reviews = collection.get("totalPullRequestReviewContributions", 0)
+            recent_issues = collection.get("totalIssueContributions", 0)
+            return GitHubProfileSnapshot(
+                username=user_data.get("login") or username,
+                display_name=user_data.get("name"),
+                avatar_url=user_data.get("avatarUrl"),
+                account_created_at=created_at,
+                followers=user_data.get("followers", {}).get("totalCount", 0),
+                public_repos=repositories.get("totalCount", 0),
+                total_stars=total_stars,
+                languages=languages,
+                recent_commits=recent_commits,
+                recent_pull_requests=recent_pull_requests,
+                recent_reviews=recent_reviews,
+                recent_issues=recent_issues,
+                recent_private_contributions=0,
+                recent_active_days=recent_active_days,
+                # Do not expose a calendar total that could incorporate private
+                # work for an authorized viewer. This public summary is derived
+                # solely from the four explicitly rendered activity types.
+                recent_total_contributions=(
+                    recent_commits
+                    + recent_pull_requests
+                    + recent_reviews
+                    + recent_issues
+                ),
+                contribution_days=contribution_days,
+                fetched_at=collected_at,
+            )
+
+        try:
+            snapshot = await self._retry_with_backoff(_fetch_snapshot)
+        except GitHubServiceError:
+            raise
+        except Exception as exc:
+            logger.error("Unexpected error collecting profile snapshot for '%s': %s", username, exc)
+            raise GitHubServiceError(f"Failed to collect GitHub profile snapshot: {exc}") from exc
+
+        # Lifetime data is a progression bonus, not a reason to fail a useful
+        # pet render. GitHub can reject a historical window for exceptionally
+        # active profiles, so retain current-year facts if a batch is unavailable.
+        lifetime_contributions = await self._get_lifetime_contributions(
+            username=username,
+            account_created_at=snapshot.account_created_at,
+            now=collected_at,
+        )
+        return snapshot.model_copy(
+            update={"lifetime_contributions": lifetime_contributions}
+        )
+
+    async def _get_lifetime_contributions(
+        self,
+        username: str,
+        account_created_at: datetime,
+        now: datetime,
+    ) -> int:
+        """Return best-effort lifetime contributions in bounded yearly windows."""
+        created_year = account_created_at.year
+        current_year = now.year
+        if created_year > current_year:
+            return 0
+
+        years = list(range(created_year, current_year + 1))
+        total = 0
+        # Four aliases balance round trips with GraphQL resource use. Batches
+        # are intentionally sequential so one popular profile cannot create a
+        # burst of expensive history requests.
+        for start in range(0, len(years), 4):
+            batch = years[start:start + 4]
+            aliases = []
+            for year in batch:
+                to_iso = (
+                    now.strftime("%Y-%m-%dT%H:%M:%SZ")
+                    if year == current_year
+                    else f"{year}-12-31T23:59:59Z"
+                )
+                aliases.append(
+                    f'''y{year}: contributionsCollection(
+                      from: "{year}-01-01T00:00:00Z"
+                      to: "{to_iso}"
+                    ) {{
+                      totalCommitContributions
+                      totalPullRequestContributions
+                      totalPullRequestReviewContributions
+                      totalIssueContributions
+                    }}'''
+                )
+            query = """
+            query($userName: String!) {
+              user(login: $userName) {
+                %s
+              }
+            }
+            """ % "\n".join(aliases)
+
+            async def _fetch_batch() -> int:
+                client = await self._get_client()
+                response = await client.post(
+                    self.graphql_url,
+                    json={"query": query, "variables": {"userName": username}},
+                    headers=self.graphql_headers,
+                )
+                response.raise_for_status()
+                self._handle_rate_limit_response(response)
+                data = response.json()
+                graphql_error = self._extract_graphql_errors(data)
+                if graphql_error:
+                    raise GitHubAPIError(message=graphql_error)
+                user_data = data.get("data", {}).get("user") or {}
+                batch_total = 0
+                for year in batch:
+                    contribution_data = user_data.get(f"y{year}") or {}
+                    batch_total += sum(
+                        int(contribution_data.get(field, 0) or 0)
+                        for field in (
+                            "totalCommitContributions",
+                            "totalPullRequestContributions",
+                            "totalPullRequestReviewContributions",
+                            "totalIssueContributions",
+                        )
+                    )
+                return batch_total
+
+            try:
+                total += await self._retry_with_backoff(_fetch_batch)
+            except Exception as exc:
+                logger.warning(
+                    "Skipping lifetime contribution window %s-%s for '%s': %s",
+                    batch[0], batch[-1], username, exc,
+                )
+
+        return total
+
     async def get_contribution_data(self, username: str, days: int = 7) -> ContributionData:
         """
         Fetch contribution calendar data via GitHub GraphQL API.

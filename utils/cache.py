@@ -6,8 +6,12 @@ to minimize API calls and respect rate limits.
 """
 
 from datetime import datetime, timedelta
-from typing import Any, Optional
+from typing import Any, Awaitable, Callable, Optional, TypeVar
 import threading
+import asyncio
+
+
+T = TypeVar("T")
 
 
 class CacheService:
@@ -23,6 +27,10 @@ class CacheService:
         """Initialize the cache with an empty storage dictionary and a lock for thread safety."""
         self._cache: dict[str, tuple[Any, datetime]] = {}
         self._lock = threading.Lock()
+        # Coalesce concurrent cache misses for a key. This is deliberately kept
+        # separate from the value cache: failures are never cached and a later
+        # request can retry normally.
+        self._inflight: dict[str, asyncio.Task[Any]] = {}
     
     def get(self, key: str) -> Optional[Any]:
         """
@@ -76,6 +84,42 @@ class CacheService:
         """Clear all cached values."""
         with self._lock:
             self._cache.clear()
+
+    async def get_or_set_async(
+        self,
+        key: str,
+        loader: Callable[[], Awaitable[T]],
+        ttl: int = 300,
+    ) -> T:
+        """Return a cached value or load it once for all concurrent callers.
+
+        A popular README image can cause many simultaneous requests for the
+        same profile. Without single-flight behaviour, every request would make
+        the same expensive GitHub GraphQL calls before the first response could
+        populate the cache.
+        """
+        cached = self.get(key)
+        if cached is not None:
+            return cached
+
+        task = self._inflight.get(key)
+        if task is None:
+            task = asyncio.create_task(loader())
+            self._inflight[key] = task
+
+        try:
+            value = await task
+        except Exception:
+            raise
+        else:
+            self.set(key, value, ttl=ttl)
+            return value
+        finally:
+            # Only remove the task this call observed. A completed task cannot
+            # be replaced before this synchronous section runs, but the guard
+            # keeps the behaviour correct if that ever changes.
+            if self._inflight.get(key) is task and task.done():
+                self._inflight.pop(key, None)
     
     def cleanup_expired(self) -> int:
         """
@@ -134,3 +178,8 @@ class CacheService:
             Cache key in the format "github_activity:{username}"
         """
         return f"github_activity:{username}"
+
+    @staticmethod
+    def generate_profile_snapshot_key(username: str) -> str:
+        """Generate a versioned cache key for a rich GitHub profile snapshot."""
+        return f"github_profile_snapshot:v1:{username.strip().lower()}"

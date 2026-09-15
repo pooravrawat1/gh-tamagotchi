@@ -4,6 +4,7 @@ Tests for the game engine time decay calculations.
 from datetime import datetime, timedelta
 from services.game_engine import GameEngine
 from models.pet_models import PetState, PetStage
+from models.github_models import ContributionDay, GitHubProfileSnapshot
 
 
 def test_calculate_time_decay_basic():
@@ -602,3 +603,67 @@ def test_activity_reward_cutoff_handles_timezone_aware_events():
     )
 
     assert updated_pet.xp == 20
+
+
+def test_profile_snapshot_drives_deterministic_pet_state():
+    """A snapshot should make repeated renders stable, not grant repeat XP."""
+    engine = GameEngine()
+    now = datetime(2026, 5, 6, 12, 0, 0)
+    pet = PetState(
+        username="octocat",
+        hunger=1,
+        happiness=1,
+        health=1,
+        energy=1,
+        level=0,
+        xp=0,
+        stage=PetStage.EGG,
+        last_updated=now - timedelta(days=10),
+    )
+    profile = GitHubProfileSnapshot(
+        username="octocat",
+        account_created_at=datetime(2020, 1, 1),
+        total_stars=100,
+        languages=["Python", "TypeScript", "Rust"],
+        recent_commits=120,
+        recent_pull_requests=30,
+        recent_reviews=20,
+        recent_issues=10,
+        recent_active_days=3,
+        recent_total_contributions=300,
+        contribution_days=[
+            ContributionDay(date=now.date(), count=12),
+            ContributionDay(date=now.date() - timedelta(days=1), count=8),
+            ContributionDay(date=now.date() - timedelta(days=3), count=4),
+        ],
+        lifetime_contributions=5000,
+        fetched_at=now,
+    )
+
+    first = engine.update_pet_from_profile(pet, profile, now)
+    second = engine.update_pet_from_profile(first, profile, now)
+
+    assert first.model_dump() == second.model_dump()
+    assert first.hunger == 100
+    assert first.energy == 100
+    assert first.happiness > 60
+    assert first.health > 50
+    assert first.level > 5
+
+
+def test_profile_snapshot_without_recent_activity_leaves_pet_depleted():
+    engine = GameEngine()
+    now = datetime(2026, 5, 6, 12, 0, 0)
+    pet = PetState(username="octocat", last_updated=now)
+    profile = GitHubProfileSnapshot(
+        username="octocat",
+        account_created_at=datetime(2020, 1, 1),
+        fetched_at=now,
+    )
+
+    updated = engine.update_pet_from_profile(pet, profile, now)
+
+    assert updated.hunger == 0
+    assert updated.energy == 0
+    assert updated.happiness == 18
+    assert updated.health == 15

@@ -6,6 +6,7 @@ from datetime import datetime
 from xml.etree import ElementTree
 
 from models.pet_models import PetState
+from models.github_models import GitHubProfileSnapshot
 from rendering.svg_renderer import SVGRenderer
 
 
@@ -67,3 +68,24 @@ def test_all_stages_render_distinct_sprites():
 
     assert len(set(sprites.values())) == 5
     assert "Crown" in sprites["legendary"]
+
+
+def test_profile_summary_uses_snapshot_facts():
+    renderer = SVGRenderer()
+    profile = GitHubProfileSnapshot(
+        username="octocat",
+        account_created_at=datetime(2020, 1, 1),
+        languages=["Python", "TypeScript"],
+        recent_commits=1200,
+        recent_pull_requests=12,
+        recent_reviews=8,
+        recent_active_days=24,
+        recent_total_contributions=1350,
+        fetched_at=datetime.utcnow(),
+    )
+
+    svg = renderer.render_pet(make_pet(), profile)
+
+    assert 'id="github-profile-summary"' in svg
+    assert "365d: 1.4k contributions | 24 active days" in svg
+    assert "COM 1.2k | PR 12 | REV 8 | LANG 2" in svg

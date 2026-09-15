@@ -2,10 +2,11 @@
 Tests for PetService orchestration and cache behavior.
 """
 
+import asyncio
 import pytest
 from datetime import date, datetime, timedelta
 
-from models.github_models import ContributionData, ContributionDay
+from models.github_models import ContributionData, ContributionDay, GitHubProfileSnapshot
 from models.pet_models import PetState
 from services.game_engine import GameEngine
 from services.pet_service import PetService
@@ -75,8 +76,38 @@ class StubRepository:
 
 
 class StubRenderer:
-    def render_pet(self, pet):
+    def render_pet(self, pet, profile=None):
         return f"svg:{pet.username}:{pet.hunger}:{pet.happiness}"
+
+
+class SnapshotGitHubService:
+    def __init__(self):
+        self.snapshot_fetches = 0
+
+    async def get_profile_snapshot(self, username):
+        self.snapshot_fetches += 1
+        today = date.today()
+        return GitHubProfileSnapshot(
+            username=username,
+            display_name="The Octocat",
+            account_created_at=datetime(2021, 1, 1),
+            followers=10,
+            public_repos=5,
+            total_stars=25,
+            languages=["Python", "TypeScript"],
+            recent_commits=24,
+            recent_pull_requests=8,
+            recent_reviews=12,
+            recent_issues=4,
+            recent_active_days=2,
+            recent_total_contributions=48,
+            contribution_days=[
+                ContributionDay(date=today, count=12),
+                ContributionDay(date=today - timedelta(days=1), count=8),
+            ],
+            lifetime_contributions=2500,
+            fetched_at=datetime.utcnow(),
+        )
 
 
 @pytest.mark.asyncio
@@ -170,3 +201,46 @@ async def test_stale_pet_refresh_uses_cached_validation_and_github_data():
     assert github.contribution_fetches == 1
     assert github.activity_fetches == 1
     assert repository.updated == 2
+
+
+@pytest.mark.asyncio
+async def test_profile_snapshot_drives_pet_and_is_reused_for_svg_and_profile():
+    github = SnapshotGitHubService()
+    repository = StubRepository()
+    service = PetService(
+        github_service=github,
+        game_engine=GameEngine(),
+        repository=repository,
+        renderer=StubRenderer(),
+        cache=CacheService(),
+        settings=StubSettings(),
+    )
+
+    svg = await service.get_pet_svg("octocat")
+    profile = await service.get_pet_profile("octocat")
+
+    assert svg.startswith("svg:octocat:100:")
+    assert github.snapshot_fetches == 1
+    assert profile.github.recent_reviews == 12
+    assert profile.pet.xp > 500
+    assert repository.updated == 1
+
+
+@pytest.mark.asyncio
+async def test_cache_single_flight_loads_a_profile_once():
+    cache = CacheService()
+    calls = 0
+
+    async def loader():
+        nonlocal calls
+        calls += 1
+        await asyncio.sleep(0)
+        return {"fresh": True}
+
+    values = await asyncio.gather(*[
+        cache.get_or_set_async("profile:octocat", loader, ttl=60)
+        for _ in range(5)
+    ])
+
+    assert calls == 1
+    assert values == [{"fresh": True}] * 5

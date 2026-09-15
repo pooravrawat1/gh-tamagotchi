@@ -236,7 +236,113 @@ class TestGetContributionData:
         assert len(result.commit_days) == 2
         assert result.commit_days[0].count == 5
         assert result.commit_days[1].count == 4
-    
+
+
+class TestGetProfileSnapshot:
+    """Tests for the rich GraphQL profile collection path."""
+
+    @pytest.mark.asyncio
+    async def test_get_profile_snapshot_collects_stats_and_lifetime_history(
+        self, github_service
+    ):
+        mock_client = AsyncMock()
+        snapshot_response = MagicMock()
+        snapshot_response.status_code = 200
+        snapshot_response.headers = {}
+        snapshot_response.json.return_value = {
+            "data": {
+                "user": {
+                    "login": "octocat",
+                    "name": "The Octocat",
+                    "avatarUrl": "https://avatars.example/octocat",
+                    "createdAt": "2025-01-01T00:00:00Z",
+                    "followers": {"totalCount": 42},
+                    "repositories": {
+                        "totalCount": 3,
+                        "nodes": [
+                            {
+                                "stargazerCount": 11,
+                                "primaryLanguage": {"name": "Python"},
+                            },
+                            {
+                                "stargazerCount": 7,
+                                "primaryLanguage": {"name": "TypeScript"},
+                            },
+                            {"stargazerCount": 0, "primaryLanguage": None},
+                        ],
+                    },
+                    "contributionsCollection": {
+                        "totalCommitContributions": 100,
+                        "totalPullRequestContributions": 20,
+                        "totalPullRequestReviewContributions": 10,
+                        "totalIssueContributions": 5,
+                        "restrictedContributionsCount": 4,
+                        "commitContributionsByRepository": [{
+                            "contributions": {"totalCount": 4},
+                            "repository": {
+                                "isFork": False,
+                                "isPrivate": False,
+                                "primaryLanguage": {"name": "Rust"},
+                            },
+                        }],
+                        "contributionCalendar": {
+                            "totalContributions": 139,
+                            "weeks": [{
+                                "contributionDays": [
+                                    {"date": "2026-05-05", "contributionCount": 3},
+                                    {"date": "2026-05-06", "contributionCount": 0},
+                                ]
+                            }],
+                        },
+                    },
+                }
+            }
+        }
+        lifetime_response = MagicMock()
+        lifetime_response.status_code = 200
+        lifetime_response.headers = {}
+        lifetime_response.json.return_value = {
+            "data": {
+                "user": {
+                    "y2025": {
+                        "totalCommitContributions": 10,
+                        "totalPullRequestContributions": 2,
+                        "totalPullRequestReviewContributions": 3,
+                        "totalIssueContributions": 4,
+                        "restrictedContributionsCount": 1,
+                    },
+                    "y2026": {
+                        "totalCommitContributions": 20,
+                        "totalPullRequestContributions": 4,
+                        "totalPullRequestReviewContributions": 5,
+                        "totalIssueContributions": 6,
+                        "restrictedContributionsCount": 2,
+                    },
+                }
+            }
+        }
+        mock_client.post.side_effect = [snapshot_response, lifetime_response]
+        github_service.http_client = mock_client
+
+        result = await github_service.get_profile_snapshot(
+            "octocat", now=datetime(2026, 5, 6, 12, 0, 0)
+        )
+
+        assert result.username == "octocat"
+        assert result.total_stars == 18
+        assert result.languages == ["Python", "Rust", "TypeScript"]
+        assert result.recent_active_days == 1
+        assert result.recent_reviews == 10
+        assert result.lifetime_contributions == 54
+        assert mock_client.post.await_count == 2
+        first_payload = mock_client.post.call_args_list[0].kwargs["json"]
+        assert "totalPullRequestReviewContributions" in first_payload["query"]
+        assert first_payload["variables"]["from"] == "2025-05-07T00:00:00Z"
+
+
+class TestGetContributionDataErrors:
+    """Additional error and retry coverage for the legacy collector."""
+
     @pytest.mark.asyncio
     async def test_get_contribution_data_user_not_found(self, github_service):
         """Test user not found in GraphQL response."""

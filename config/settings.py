@@ -42,6 +42,11 @@ class Settings(BaseSettings):
         ge=0,
         description="Cache TTL in seconds (default: 5 minutes)"
     )
+    profile_snapshot_ttl_seconds: int = Field(
+        default=21600,
+        ge=60,
+        description="GitHub profile snapshot cache TTL in seconds (default: 6 hours)"
+    )
     
     # Game Engine Configuration - Decay Rates (per hour)
     hunger_decay_rate: float = Field(

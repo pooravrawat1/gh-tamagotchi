@@ -6,7 +6,7 @@ including pet SVG generation, stats retrieval, and health checks.
 """
 
 import logging
-from fastapi import APIRouter, Depends, Query, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response
 from fastapi.responses import JSONResponse
 
 from services.pet_service import PetService
@@ -23,6 +23,61 @@ logger = logging.getLogger(__name__)
 
 # Create router for pet-related endpoints
 router = APIRouter()
+
+
+async def _render_pet_response(user: str, pet_service: PetService) -> Response:
+    """Render an SVG response shared by legacy and clean image URLs."""
+    if not user or not user.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Username parameter is required and cannot be empty",
+        )
+
+    try:
+        svg_content = await pet_service.get_pet_svg(user)
+        return Response(
+            content=svg_content,
+            media_type="image/svg+xml",
+            headers={
+                "Cache-Control": "public, max-age=300",
+                "Content-Type": "image/svg+xml; charset=utf-8",
+            },
+        )
+    except GitHubUserNotFoundError as e:
+        raise HTTPException(
+            status_code=404,
+            detail=f"GitHub user '{user}' not found",
+        ) from e
+    except GitHubRateLimitError as e:
+        raise HTTPException(
+            status_code=429,
+            detail="GitHub API rate limit exceeded. Please try again later.",
+        ) from e
+    except GitHubTimeoutError as e:
+        raise HTTPException(
+            status_code=503,
+            detail="GitHub service is currently unavailable. Please try again later.",
+        ) from e
+    except GitHubServiceError as e:
+        raise HTTPException(
+            status_code=503,
+            detail="Unable to fetch GitHub data. Please try again later.",
+        ) from e
+    except Exception as e:
+        logger.exception("Unexpected error generating pet for user %s", user)
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error. Please try again later.",
+        ) from e
+
+
+@router.get("/pet/{username}.svg")
+async def get_pet_widget_by_username(
+    username: str = Path(..., description="GitHub username"),
+    pet_service: PetService = Depends(get_pet_service_dependency),
+) -> Response:
+    """Clean image URL for README embeds: ``/pet/octocat.svg``."""
+    return await _render_pet_response(username, pet_service)
 
 
 @router.get("/pet")
@@ -57,66 +112,8 @@ async def get_pet_widget(
         Returns SVG image that can be embedded as:
         ![My Pet](https://your-domain.com/pet?user=octocat)
     """
-    logger.info(f"Received request for pet widget: user={user}")
-    
-    # Validate username parameter
-    if not user or not user.strip():
-        logger.warning("Request received with empty username parameter")
-        raise HTTPException(
-            status_code=400,
-            detail="Username parameter is required and cannot be empty"
-        )
-    
-    try:
-        # Generate SVG for the user
-        svg_content = await pet_service.get_pet_svg(user)
-        
-        logger.info(f"Successfully generated pet SVG for user: {user}")
-        
-        # Return SVG with appropriate content type
-        return Response(
-            content=svg_content,
-            media_type="image/svg+xml",
-            headers={
-                "Cache-Control": "public, max-age=300",  # Cache for 5 minutes
-                "Content-Type": "image/svg+xml; charset=utf-8"
-            }
-        )
-        
-    except GitHubUserNotFoundError as e:
-        logger.warning(f"GitHub user not found: {user}")
-        raise HTTPException(
-            status_code=404,
-            detail=f"GitHub user '{user}' not found"
-        )
-        
-    except GitHubRateLimitError as e:
-        logger.error(f"GitHub API rate limit exceeded for user: {user}")
-        raise HTTPException(
-            status_code=429,
-            detail="GitHub API rate limit exceeded. Please try again later."
-        )
-        
-    except GitHubTimeoutError as e:
-        logger.error(f"GitHub API timeout for user: {user}")
-        raise HTTPException(
-            status_code=503,
-            detail="GitHub service is currently unavailable. Please try again later."
-        )
-        
-    except GitHubServiceError as e:
-        logger.error(f"GitHub service error for user {user}: {e}")
-        raise HTTPException(
-            status_code=503,
-            detail="Unable to fetch GitHub data. Please try again later."
-        )
-        
-    except Exception as e:
-        logger.error(f"Unexpected error generating pet for user {user}: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail="Internal server error. Please try again later."
-        )
+    logger.info("Received request for pet widget: user=%s", user)
+    return await _render_pet_response(user, pet_service)
 
 
 @router.get("/stats")
@@ -223,6 +220,46 @@ async def get_pet_stats(
             status_code=500,
             detail="Internal server error. Please try again later."
         )
+
+
+@router.get("/profile/{username}")
+async def get_pet_profile(
+    username: str = Path(..., description="GitHub username"),
+    pet_service: PetService = Depends(get_pet_service_dependency),
+) -> JSONResponse:
+    """Return the pet and its cached GitHub fact snapshot as JSON.
+
+    This is the API surface for a future full scout/profile page. The existing
+    ``/stats`` endpoint remains a lightweight backwards-compatible pet-state
+    response for current users.
+    """
+    try:
+        profile = await pet_service.get_pet_profile(username)
+        return JSONResponse(
+            content=profile.model_dump(mode="json"),
+            headers={"Cache-Control": "public, max-age=300"},
+        )
+    except GitHubUserNotFoundError as e:
+        raise HTTPException(
+            status_code=404,
+            detail=f"GitHub user '{username}' not found",
+        ) from e
+    except GitHubRateLimitError as e:
+        raise HTTPException(
+            status_code=429,
+            detail="GitHub API rate limit exceeded. Please try again later.",
+        ) from e
+    except (GitHubTimeoutError, GitHubServiceError) as e:
+        raise HTTPException(
+            status_code=503,
+            detail="Unable to fetch GitHub data. Please try again later.",
+        ) from e
+    except Exception as e:
+        logger.exception("Unexpected error retrieving profile for user %s", username)
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error. Please try again later.",
+        ) from e
 
 
 @router.get("/health")

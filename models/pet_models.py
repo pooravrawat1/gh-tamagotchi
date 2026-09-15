@@ -10,6 +10,8 @@ from enum import Enum
 from typing import Optional
 from pydantic import BaseModel, Field
 
+from models.github_models import GitHubProfileSnapshot
+
 
 class PetStage(str, Enum):
     """Evolution stages for the pet."""
@@ -44,3 +46,10 @@ class PetState(BaseModel):
     class Config:
         from_attributes = True
         use_enum_values = True
+
+
+class PetProfile(BaseModel):
+    """The public, cached GitHub snapshot alongside its rendered pet state."""
+
+    pet: PetState
+    github: GitHubProfileSnapshot

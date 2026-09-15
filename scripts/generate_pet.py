@@ -93,19 +93,12 @@ async def generate(
     current_time = datetime.utcnow()
 
     async with GitHubService(settings=settings) as github_service:
-        await github_service.validate_user_exists(username)
-        contribution_data = await github_service.get_contribution_data(username, days=7)
-        recent_activity = await github_service.get_recent_activity(username, limit=30)
+        profile = await github_service.get_profile_snapshot(username, now=current_time)
 
-    pet = game_engine.update_pet(
-        pet,
-        contribution_data,
-        recent_activity,
-        current_time,
-    )
+    pet = game_engine.update_pet_from_profile(pet, profile, current_time)
 
     save_pet_state(state_path, pet)
-    svg = renderer.render_pet(pet)
+    svg = renderer.render_pet(pet, profile)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(svg, encoding="utf-8")
     logger.info(

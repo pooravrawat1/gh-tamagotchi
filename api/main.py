@@ -30,7 +30,7 @@ logger = get_logger(__name__)
 app = FastAPI(
     title="GitHub Tamagotchi",
     description="A dynamic pet widget service driven by GitHub activity",
-    version="1.0.0"
+    version="2.0.0"
 )
 
 # Configure CORS middleware
@@ -146,8 +146,10 @@ async def root():
         "service": "GitHub Tamagotchi",
         "version": "1.0.0",
         "endpoints": {
-            "pet": "/pet?user=USERNAME",
+            "pet": "/pet/USERNAME.svg",
+            "pet_legacy": "/pet?user=USERNAME",
             "stats": "/stats?user=USERNAME",
+            "profile": "/profile/USERNAME",
             "health": "/health"
         }
     }

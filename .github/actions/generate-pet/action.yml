@@ -4,7 +4,7 @@
 # Add to your profile repo (username/username) - see README for full workflow example.
 
 name: 'Generate GitHub Tamagotchi Pet'
-description: 'Generate pet.svg using GitHub contribution/activity data (no server or PAT needed)'
+description: 'Generate pet.svg from a 365-day GitHub profile snapshot (no server or PAT needed)'
 author: 'gh-tamagotchi'
 
 branding:

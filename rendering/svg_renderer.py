@@ -5,6 +5,9 @@ This module generates dynamic SVG images representing pet state,
 including pet sprites, stat bars, and mood messages.
 """
 
+from typing import Optional
+
+from models.github_models import GitHubProfileSnapshot
 from models.pet_models import PetState
 
 
@@ -18,7 +21,7 @@ class SVGRenderer:
     
     # SVG dimensions
     WIDTH = 400
-    HEIGHT = 300
+    HEIGHT = 350
     
     # Stat bar configuration
     STAT_BAR_WIDTH = 200
@@ -40,7 +43,11 @@ class SVGRenderer:
     # System monospace stack keeps the SVG self-contained for README embedding.
     FONT_FAMILY = '"Courier New", Courier, monospace'
 
-    def render_pet(self, pet: PetState) -> str:
+    def render_pet(
+        self,
+        pet: PetState,
+        profile: Optional[GitHubProfileSnapshot] = None,
+    ) -> str:
         """
         Generate SVG string from pet state.
         
@@ -67,6 +74,8 @@ class SVGRenderer:
         pet_sprite = self.get_pet_sprite(pet.stage)
         mood_message = self.get_mood_message(pet)
         
+        profile_summary = self._render_profile_summary(profile)
+
         # Build SVG
         svg = f'''<svg width="{self.WIDTH}" height="{self.HEIGHT}" xmlns="http://www.w3.org/2000/svg">
   <!-- Background -->
@@ -118,9 +127,35 @@ class SVGRenderer:
     <rect x="{self.STAT_BAR_X}" y="{self.STAT_BAR_SPACING * 3 - 10}" width="{energy_width}" height="{self.STAT_BAR_HEIGHT}" fill="{self.COLOR_ENERGY}" rx="5"/>
     <text x="{self.STAT_BAR_X + self.STAT_BAR_WIDTH + 10}" y="{self.STAT_BAR_SPACING * 3}" font-size="11" fill="{self.COLOR_TEXT_SECONDARY}" font-family='{self.FONT_FAMILY}'>{pet.energy}</text>
   </g>
+  {profile_summary}
 </svg>'''
         
         return svg
+
+    def _render_profile_summary(
+        self,
+        profile: Optional[GitHubProfileSnapshot],
+    ) -> str:
+        """Render compact source facts below the pet's game-state bars."""
+        if profile is None:
+            return ""
+
+        recent = self._format_count(profile.recent_total_contributions)
+        commits = self._format_count(profile.recent_commits)
+        pull_requests = self._format_count(profile.recent_pull_requests)
+        reviews = self._format_count(profile.recent_reviews)
+        return f'''<g id="github-profile-summary">
+    <line x1="50" y1="315" x2="350" y2="315" stroke="#d4d4d4" stroke-width="1"/>
+    <text x="200" y="333" text-anchor="middle" font-size="11" fill="{self.COLOR_TEXT_SECONDARY}" font-family='{self.FONT_FAMILY}'>365d: {recent} contributions | {profile.recent_active_days} active days</text>
+    <text x="200" y="347" text-anchor="middle" font-size="10" fill="{self.COLOR_TEXT_TERTIARY}" font-family='{self.FONT_FAMILY}'>COM {commits} | PR {pull_requests} | REV {reviews} | LANG {len(profile.languages)}</text>
+  </g>'''
+
+    @staticmethod
+    def _format_count(value: int) -> str:
+        """Use compact, fixed-width-friendly counts in an SVG widget."""
+        if value >= 1000:
+            return f"{value / 1000:.1f}k"
+        return str(value)
     
     def get_pet_sprite(self, stage: str) -> str:
         """

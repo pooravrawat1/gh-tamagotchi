@@ -1,10 +1,11 @@
 """
 Game engine for GitHub Tamagotchi pet stats and evolution logic.
 """
-from datetime import datetime, timezone
+import math
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 from models.pet_models import PetState
-from models.github_models import ContributionData, ActivityEvent
+from models.github_models import ActivityEvent, ContributionData, GitHubProfileSnapshot
 
 
 class GameEngine:
@@ -269,6 +270,93 @@ class GameEngine:
             'level': new_level,
             'stage': new_stage
         })
+
+    def update_pet_from_profile(
+        self,
+        pet: PetState,
+        profile: GitHubProfileSnapshot,
+        current_time: Optional[datetime] = None,
+    ) -> PetState:
+        """Derive a pet's state from a complete GitHub profile snapshot.
+
+        Unlike the legacy event-reward path, this method has no hidden mutable
+        reward counter. The same GitHub facts always produce the same pet. That
+        makes cache refreshes, repeated README views, and a future JSON/profile
+        page consistent with one another.
+
+        The values are intentionally broad and logarithmic where volume could
+        otherwise dominate. A developer who collaborates steadily should grow a
+        healthy pet even if they do not publish thousands of commits.
+        """
+        now = self._as_naive_utc(current_time or datetime.utcnow())
+        contribution_days = profile.contribution_days
+        active_dates = [day.date for day in contribution_days if day.count > 0]
+        last_activity_date = max(active_dates) if active_dates else None
+        days_since_activity = (
+            max(0, (now.date() - last_activity_date).days)
+            if last_activity_date is not None
+            else 365
+        )
+
+        week_start = now.date() - timedelta(days=6)
+        month_start = now.date() - timedelta(days=29)
+        weekly_contributions = sum(
+            day.count for day in contribution_days if day.date >= week_start
+        )
+        active_days_30 = sum(
+            1
+            for day in contribution_days
+            if day.date >= month_start and day.count > 0
+        )
+        collaboration = (
+            profile.recent_pull_requests
+            + profile.recent_reviews
+            + profile.recent_issues
+        )
+
+        # Hunger is really the pet's fullness: recent work feeds it. Recency is
+        # the primary signal so a historical volume spike cannot keep it full.
+        hunger = self.clamp_stat(
+            100 - (days_since_activity * 14) + min(35, weekly_contributions * 2)
+        )
+        energy = self.clamp_stat(
+            100 - (days_since_activity * 11) + min(20, active_days_30)
+        )
+        happiness = self.clamp_stat(
+            18 + (active_days_30 * 2) + (math.log1p(collaboration) * 12)
+        )
+        health = self.clamp_stat(
+            15
+            + (active_days_30 * 2)
+            + min(25, math.log1p(profile.recent_total_contributions) * 6)
+            + min(20, len(profile.languages) * 4)
+        )
+
+        account_age_days = max(
+            0,
+            (now - self._as_naive_utc(profile.account_created_at)).days,
+        )
+        # Evolution is permanent-ish: lifetime work is the main ingredient,
+        # with modest bonuses for sustained account age, collaboration, impact,
+        # and language breadth. sqrt/log scaling prevents a single high-volume
+        # axis from making every active account legendary immediately.
+        xp = int(
+            math.sqrt(profile.lifetime_contributions) * 10
+            + min(200, account_age_days / 365 * 25)
+            + min(250, math.log1p(collaboration) * 35)
+            + min(150, math.log1p(profile.total_stars) * 25)
+            + min(80, len(profile.languages) * 10)
+        )
+
+        pet = pet.model_copy(update={
+            "hunger": hunger,
+            "happiness": happiness,
+            "health": health,
+            "energy": energy,
+            "xp": xp,
+            "last_updated": now,
+        })
+        return self.calculate_level_and_stage(pet)
     
     def update_pet(
         self,

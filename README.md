@@ -52,9 +52,9 @@ The pet is generated in your profile repo by a workflow using GitHub’s built-i
    ![GitHub Tamagotchi](pet.svg)
    ```
 
-4. **Run the workflow** once (Actions → “Update GitHub Tamagotchi Pet” → “Run workflow”) or wait for the schedule. The pet will update from your GitHub activity (commits, PRs).
+4. **Run the workflow** once (Actions → “Update GitHub Tamagotchi Pet” → “Run workflow”) or wait for the schedule. The pet will update from its 365-day GitHub snapshot.
 
-**How it gets your data:** The workflow uses `secrets.GITHUB_TOKEN`, which has access to the repository. The generator script uses that token to call GitHub’s API for **public** contribution and activity data for the repo owner (you). No PAT or deployment required.
+**How it gets your data:** The workflow uses `secrets.GITHUB_TOKEN` to query the repo owner's **public** GitHub profile through GraphQL: 365-day activity, public repositories, stars, languages, and lifetime activity. No PAT or deployment is needed.
 
 ---
 
@@ -66,7 +66,7 @@ If a public instance is available (e.g. after [deploying on Render](#render)), a
 2. In `README.md`:
 
    ```markdown
-   ![GitHub Tamagotchi](https://gh-tamagotchi.onrender.com/pet?user=YOUR_GITHUB_USERNAME)
+   ![GitHub Tamagotchi](https://gh-tamagotchi.onrender.com/pet/YOUR_GITHUB_USERNAME.svg)
    ```
 
 3. Replace the URL with the instance’s base URL and your username.
@@ -76,18 +76,18 @@ If a public instance is available (e.g. after [deploying on Render](#render)), a
 ## Features
 
 - **Dynamic Pet Widget**: SVG-based pet that changes appearance based on your GitHub activity
-- **Real-time Stats**: Hunger, happiness, health, and energy stats that decay over time
-- **Activity Rewards**: Commits and pull requests boost your pet's stats
-- **Evolution System**: Pet evolves through 5 stages (egg → baby → teen → adult → legendary)
+- **GitHub Profile Snapshot**: GraphQL data covers 365-day commits, PRs, reviews, issues, streak-like active days, repository stars, languages, and lifetime activity
+- **Living Pet Stats**: Recency feeds hunger and energy; collaboration and consistency drive happiness and health
+- **Evolution System**: Long-term activity, account age, collaboration, impact, and language diversity drive the five stages (egg → baby → teen → adult → legendary)
 - **Embeddable**: Works with standard markdown image syntax in GitHub READMEs
-- **Fast & Cached**: Responses under 100ms with intelligent caching
+- **Fast & Cached**: Versioned profile snapshots are cached for six hours and concurrent cache misses are coalesced
 
 ## Quick Start
 
 ### Prerequisites
 
 - Python 3.11+
-- GitHub Personal Access Token (for API access)
+- A GitHub token for API access. A fine-grained read-only token works for local development; use a GitHub App for a shared hosted instance.
 
 ### Local Development
 
@@ -154,11 +154,15 @@ pytest --cov=. --cov-report=term-missing
 | `GITHUB_REST_URL`    | No       | `https://api.github.com`         | GitHub REST API endpoint                            |
 | `DATABASE_URL`       | No       | `sqlite:///./pets.db`            | Database connection URL                             |
 | `CACHE_TTL_SECONDS`  | No       | `300`                            | Cache time-to-live in seconds (5 minutes)           |
+| `PROFILE_SNAPSHOT_TTL_SECONDS` | No | `21600` | GitHub profile snapshot cache time-to-live (6 hours) |
 | `HOST`               | No       | `0.0.0.0`                        | Server host address                                 |
 | `PORT`               | No       | `8000`                           | Server port                                         |
 | `LOG_LEVEL`          | No       | `INFO`                           | Logging level (DEBUG, INFO, WARNING, ERROR)         |
 
-### Game Engine Configuration (Optional)
+### Legacy game-engine configuration (optional)
+
+The profile-snapshot engine does not use the following decay/reward settings.
+They remain available only for legacy callers of the pre-v2 collector.
 
 These variables control pet stat decay and activity boosts:
 
@@ -183,18 +187,14 @@ INACTIVE_ENERGY_PENALTY=10
 
 ## API Endpoints
 
-### GET /pet
+### GET /pet/{username}.svg
 
 Returns an SVG image of your pet widget.
-
-**Query Parameters:**
-
-- `user` (required): GitHub username
 
 **Example:**
 
 ```bash
-curl "http://localhost:8000/pet?user=octocat"
+curl "http://localhost:8000/pet/octocat.svg"
 ```
 
 **Response:**
@@ -205,8 +205,10 @@ curl "http://localhost:8000/pet?user=octocat"
 **Embed in GitHub README:**
 
 ```markdown
-![My GitHub Pet](http://your-domain.com/pet?user=yourusername)
+![My GitHub Pet](https://your-domain.com/pet/yourusername.svg)
 ```
+
+`GET /pet?user=USERNAME` remains available for existing embeds.
 
 ### GET /stats
 
@@ -236,6 +238,16 @@ curl "http://localhost:8000/stats?user=octocat"
   "stage": "teen",
   "last_updated": "2024-02-13T10:30:45.123456"
 }
+```
+
+### GET /profile/{username}
+
+Returns the pet plus the cached GitHub facts used to calculate it: profile
+metadata, recent commits/PRs/reviews/issues, contribution calendar, stars,
+languages, and lifetime contributions.
+
+```bash
+curl "http://localhost:8000/profile/octocat"
 ```
 
 ### GET /health
@@ -366,105 +378,49 @@ curl "https://your-domain.com/health"
 ### Rate Limiting
 
 - GitHub API has rate limits (60 requests/hour for unauthenticated, 5000 for authenticated)
-- The service caches responses for 5 minutes to minimize API calls
+- The service keeps pet state for 5 minutes and GitHub profile snapshots for 6 hours by default
 - If rate limited, wait for the cache to expire or upgrade your GitHub token
 
 ## How the pet works
 
-The pet is driven by your **GitHub activity + time**, using a simple game engine.
+The pet is calculated from a cached **GitHub profile snapshot**, rather than a
+small, mutable stream of recent REST events. The same snapshot therefore
+produces the same pet in the SVG, the JSON API, and a GitHub Action run.
 
-### Stats
+### What is collected
 
-The pet tracks:
+One GraphQL profile query supplies the last 365 days of commits, pull requests,
+reviews, issues, contribution-calendar days, repositories, stars, primary
+languages, followers, and account age. Bounded yearly GraphQL queries add a
+best-effort lifetime contribution total for evolution.
 
-- **Hunger** (0–100)
-- **Happiness** (0–100)
-- **Energy** (0–100)
-- **Health** (0–100)
-- **XP** and **Level**
-- **Stage**: `egg → baby → teen → adult → legendary`
+The default collector is deliberately public-only: private work is neither
+requested nor exposed as repositories, languages, contribution totals, or
+activity days.
 
-All stats except XP/level are clamped between 0 and 100.
+### Stat rules
 
-### Time-based decay (it gets hungry & tired)
+| Pet stat | GitHub facts behind it |
+| --- | --- |
+| Hunger / fullness | Time since the last contribution, plus work in the last seven days |
+| Energy | Contribution recency and active days in the last 30 days |
+| Happiness | Active days and collaboration through PRs, reviews, and issues |
+| Health | Recent consistency, total activity, and language breadth |
+| XP / evolution | Lifetime contributions, account age, collaboration, stars, and languages |
 
-Every time the pet is updated, it looks at how many hours passed since the last update and decays stats:
-
-- Hunger: **−2.0 per hour**
-- Happiness: **−3.0 per hour**
-- Energy: **−1.5 per hour**
-- Health: **−0.5 per hour**
-
-So if 12 hours pass, roughly:
-
-- Hunger −24
-- Happiness −36
-- Energy −18
-- Health −6
-
-### Activity boosts (how you “feed” it)
-
-After decay, your recent GitHub activity can boost stats:
-
-**Commits today**
-
-If GitHub reports at least **1 commit contribution today**:
-
-- Hunger **+10** (less hungry)
-- Happiness **+5**
-
-This uses GitHub's commit-specific contribution data, not the generic
-contribution calendar. The contribution calendar is still used to decide
-inactivity penalties.
-
-**Merged pull requests**
-
-For each **merged PR** in recent activity:
-
-- Happiness **+10**
-- XP **+20**
-
-This is how you “feed” and cheer up the pet: **commit code today** and **merge PRs**.
-
-### Inactivity penalties (ignoring your pet)
-
-If you’ve been inactive for more than **3 days** (no contributions):
-
-- Happiness **−15**
-- Energy **−10**
-
-This is applied on top of the normal per-hour decay, so long breaks make the pet sad and tired.
-
-### Growth & evolution
-
-XP accumulates mainly from **merged PRs**:
-
-- Every **100 XP = +1 level**
-
-Stages are based on level:
-
-- Level **0–2**: `egg`
-- Level **3–6**: `baby`
-- Level **7–12**: `teen`
-- Level **13–20**: `adult`
-- Level **21+**: `legendary`
-
-Over time, as you merge PRs and gain XP, your pet evolves through these stages.
+High-volume inputs use square-root or logarithmic scaling. Steady, broad work
+is rewarded more than repeatedly refreshing a widget or concentrating all
+activity in one raw count.
 
 ### When updates happen
 
-The game engine runs when:
+The hosted widget refreshes pet state every `CACHE_TTL_SECONDS` (five minutes by
+default), but reuses the same rich GitHub snapshot for
+`PROFILE_SNAPSHOT_TTL_SECONDS` (six hours by default). Concurrent requests for
+the same uncached profile share one in-flight fetch.
 
-- The `/pet?user=...` API is called and the cache needs a refresh, or
-- The **GitHub Action** in this repo (or your profile repo) runs the generator script.
-
-On each run it:
-
-1. Applies time-based decay since the last update
-2. Applies activity boosts (commits today, merged PRs)
-3. Applies inactivity penalties (if >3 days inactive)
-4. Recomputes level and evolution stage
-5. Updates the `last_updated` timestamp
+The GitHub Action uses the very same collector and game engine when it writes
+`pet.svg`; its scheduled run is a static, no-hosting alternative.
 
 ## Contributing
 

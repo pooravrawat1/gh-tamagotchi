@@ -14,8 +14,8 @@ from services.game_engine import GameEngine
 from db.repository import PetRepository
 from rendering.svg_renderer import SVGRenderer
 from utils.cache import CacheService
-from models.pet_models import PetState
-from models.github_models import ContributionData, ActivityEvent
+from models.pet_models import PetProfile, PetState
+from models.github_models import ActivityEvent, ContributionData, GitHubProfileSnapshot
 from config.settings import Settings
 
 logger = logging.getLogger(__name__)
@@ -127,6 +127,30 @@ class PetService:
         )
         return contribution_data
 
+    def _supports_profile_snapshots(self) -> bool:
+        """Allow old Action integrations to keep using the legacy collector."""
+        return callable(getattr(self.github_service, "get_profile_snapshot", None))
+
+    async def _get_profile_snapshot_cached(
+        self,
+        username: str,
+    ) -> GitHubProfileSnapshot:
+        """Fetch one rich GitHub profile, cache it, and coalesce cache misses."""
+        if not self._supports_profile_snapshots():
+            raise GitHubServiceError("GitHub profile snapshots are not available")
+
+        cache_key = self.cache.generate_profile_snapshot_key(username)
+        ttl = getattr(
+            self.settings,
+            "profile_snapshot_ttl_seconds",
+            self.settings.cache_ttl_seconds,
+        )
+        return await self.cache.get_or_set_async(
+            cache_key,
+            lambda: self.github_service.get_profile_snapshot(username),
+            ttl=ttl,
+        )
+
     async def _get_recent_activity_cached(self, username: str) -> List[ActivityEvent]:
         """Fetch recent activity, reusing the in-memory cache when present."""
         cache_key = self.cache.generate_activity_key(username)
@@ -153,6 +177,23 @@ class PetService:
     ) -> PetState:
         """Fetch GitHub data, update the pet, and persist the new state."""
         username = pet.username
+
+        if self._supports_profile_snapshots():
+            logger.debug("Fetching profile snapshot for: %s", username)
+            profile = await self._get_profile_snapshot_cached(username)
+            pet = self.game_engine.update_pet_from_profile(
+                pet,
+                profile,
+                current_time=current_time,
+            )
+            pet = self.repository.update_pet(pet)
+            logger.info(
+                "Profile-driven pet updated for %s: level=%s stage=%s",
+                username,
+                pet.level,
+                pet.stage,
+            )
+            return pet
 
         logger.debug(f"Fetching contribution data for: {username}")
         contribution_data = await self._get_contribution_data_cached(username)
@@ -187,17 +228,23 @@ class PetService:
         current_time = datetime.utcnow()
 
         if created:
-            logger.debug(f"New pet created, validating and syncing GitHub data for: {username}")
-            await self._validate_user_exists_cached(username)
+            logger.debug(f"New pet created, syncing GitHub data for: {username}")
+            if not self._supports_profile_snapshots():
+                await self._validate_user_exists_cached(username)
             return await self._sync_pet_from_github(
                 pet,
-                pet.last_updated,
+                current_time,
                 initial_sync=True
             )
 
-        if self.should_update_from_github(pet):
-            logger.debug(f"Cache expired, validating and fetching fresh GitHub data for: {username}")
-            await self._validate_user_exists_cached(username)
+        profile_snapshot_missing = (
+            self._supports_profile_snapshots()
+            and self.cache.get(self.cache.generate_profile_snapshot_key(username)) is None
+        )
+        if self.should_update_from_github(pet) or profile_snapshot_missing:
+            logger.debug("Refreshing GitHub data for: %s", username)
+            if not self._supports_profile_snapshots():
+                await self._validate_user_exists_cached(username)
             return await self._sync_pet_from_github(pet, current_time)
 
         logger.debug(f"Using cached pet state for: {username}")
@@ -230,10 +277,15 @@ class PetService:
         logger.info(f"Generating pet SVG for user: {username}")
         
         pet = await self._get_current_pet(username)
+        profile = (
+            await self._get_profile_snapshot_cached(username)
+            if self._supports_profile_snapshots()
+            else None
+        )
         
         # Step 4: Render SVG from pet state
         logger.debug(f"Rendering SVG for: {username}")
-        svg = self.renderer.render_pet(pet)
+        svg = self.renderer.render_pet(pet, profile)
         
         logger.info(f"Successfully generated pet SVG for: {username}")
         
@@ -266,3 +318,14 @@ class PetService:
         logger.info(f"Successfully retrieved pet stats for: {username}")
         
         return pet
+
+    async def get_pet_profile(self, username: str) -> PetProfile:
+        """Return the pet together with the GitHub facts that drive it."""
+        if not self._supports_profile_snapshots():
+            raise GitHubServiceError(
+                "Rich GitHub profile snapshots require an updated GitHub service"
+            )
+
+        pet = await self._get_current_pet(username)
+        profile = await self._get_profile_snapshot_cached(username)
+        return PetProfile(pet=pet, github=profile)
