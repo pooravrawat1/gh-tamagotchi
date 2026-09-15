@@ -1,13 +1,22 @@
-<svg width="400" height="300" xmlns="http://www.w3.org/2000/svg">
+<svg width="400" height="350" xmlns="http://www.w3.org/2000/svg">
   <!-- Background -->
-  <rect width="400" height="300" fill="#f0f0f0"/>
+  <rect width="400" height="350" fill="#f0f0f0"/>
   
   <!-- Pet Sprite -->
   <g id="pet-sprite" transform="translate(200, 120)">
     
-    <ellipse cx="0" cy="0" rx="35" ry="50" fill="#e8e8e8" stroke="#999" stroke-width="2"/>
-    <ellipse cx="0" cy="0" rx="30" ry="45" fill="#f5f5f5" opacity="0.6"/>
-    <ellipse cx="-10" cy="-15" rx="8" ry="12" fill="#fff" opacity="0.8"/>
+    <circle cx="0" cy="0" r="48" fill="#87ceeb" stroke="#4682b4" stroke-width="2"/>
+    <circle cx="0" cy="0" r="43" fill="#b0e0e6" opacity="0.7"/>
+    <!-- Eyes -->
+    <ellipse cx="-15" cy="-8" rx="7" ry="9" fill="#333"/>
+    <ellipse cx="15" cy="-8" rx="7" ry="9" fill="#333"/>
+    <circle cx="-13" cy="-10" r="3" fill="#fff"/>
+    <circle cx="17" cy="-10" r="3" fill="#fff"/>
+    <!-- Mouth -->
+    <path d="M -15 10 Q 0 20 15 10" stroke="#333" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <!-- Cheeks -->
+    <circle cx="-28" cy="5" r="6" fill="#ff9999" opacity="0.5"/>
+    <circle cx="28" cy="5" r="6" fill="#ff9999" opacity="0.5"/>
 
   </g>
   
@@ -18,12 +27,12 @@
   
   <!-- Stage and Level Label -->
   <text x="200" y="55" text-anchor="middle" font-size="14" fill="#666" font-family='"Courier New", Courier, monospace'>
-    Stage: egg | Level 0
+    Stage: teen | Level 7
   </text>
   
   <!-- Mood Text (below sprite, above bars) -->
   <text x="200" y="205" text-anchor="middle" font-size="12" fill="#888" font-family='"Courier New", Courier, monospace'>
-    Getting hungry!
+    Feeling great!
   </text>
   
   <!-- Stat Bars -->
@@ -31,25 +40,30 @@
     <!-- Hunger Bar -->
     <text x="0" y="0" font-size="12" fill="#333" font-family='"Courier New", Courier, monospace'>Hunger:</text>
     <rect x="70" y="-10" width="200" height="15" fill="#ddd" rx="5"/>
-    <rect x="70" y="-10" width="0.0" height="15" fill="#ff6b6b" rx="5"/>
-    <text x="280" y="0" font-size="11" fill="#666" font-family='"Courier New", Courier, monospace'>0</text>
+    <rect x="70" y="-10" width="192.0" height="15" fill="#ff6b6b" rx="5"/>
+    <text x="280" y="0" font-size="11" fill="#666" font-family='"Courier New", Courier, monospace'>96</text>
     
     <!-- Happiness Bar -->
     <text x="0" y="25" font-size="12" fill="#333" font-family='"Courier New", Courier, monospace'>Happy:</text>
     <rect x="70" y="15" width="200" height="15" fill="#ddd" rx="5"/>
-    <rect x="70" y="15" width="0.0" height="15" fill="#ffd93d" rx="5"/>
-    <text x="280" y="25" font-size="11" fill="#666" font-family='"Courier New", Courier, monospace'>0</text>
+    <rect x="70" y="15" width="200.0" height="15" fill="#ffd93d" rx="5"/>
+    <text x="280" y="25" font-size="11" fill="#666" font-family='"Courier New", Courier, monospace'>100</text>
     
     <!-- Health Bar -->
     <text x="0" y="50" font-size="12" fill="#333" font-family='"Courier New", Courier, monospace'>Health:</text>
     <rect x="70" y="40" width="200" height="15" fill="#ddd" rx="5"/>
-    <rect x="70" y="40" width="0.0" height="15" fill="#6bcf7f" rx="5"/>
-    <text x="280" y="50" font-size="11" fill="#666" font-family='"Courier New", Courier, monospace'>0</text>
+    <rect x="70" y="40" width="192.0" height="15" fill="#6bcf7f" rx="5"/>
+    <text x="280" y="50" font-size="11" fill="#666" font-family='"Courier New", Courier, monospace'>96</text>
     
     <!-- Energy Bar -->
     <text x="0" y="75" font-size="12" fill="#333" font-family='"Courier New", Courier, monospace'>Energy:</text>
     <rect x="70" y="65" width="200" height="15" fill="#ddd" rx="5"/>
-    <rect x="70" y="65" width="0.0" height="15" fill="#4d96ff" rx="5"/>
-    <text x="280" y="75" font-size="11" fill="#666" font-family='"Courier New", Courier, monospace'>0</text>
+    <rect x="70" y="65" width="200.0" height="15" fill="#4d96ff" rx="5"/>
+    <text x="280" y="75" font-size="11" fill="#666" font-family='"Courier New", Courier, monospace'>100</text>
+  </g>
+  <g id="github-profile-summary">
+    <line x1="50" y1="315" x2="350" y2="315" stroke="#d4d4d4" stroke-width="1"/>
+    <text x="200" y="333" text-anchor="middle" font-size="11" fill="#666" font-family='"Courier New", Courier, monospace'>365d: 1.0k contributions | 242 active days</text>
+    <text x="200" y="347" text-anchor="middle" font-size="10" fill="#888" font-family='"Courier New", Courier, monospace'>COM 884 | PR 144 | REV 5 | LANG 8</text>
   </g>
 </svg>
