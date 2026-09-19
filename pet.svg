@@ -52,8 +52,8 @@
     <!-- Health Bar -->
     <text x="0" y="50" font-size="12" fill="#333" font-family='"Courier New", Courier, monospace'>Health:</text>
     <rect x="70" y="40" width="200" height="15" fill="#ddd" rx="5"/>
-    <rect x="70" y="40" width="188.0" height="15" fill="#6bcf7f" rx="5"/>
-    <text x="280" y="50" font-size="11" fill="#666" font-family='"Courier New", Courier, monospace'>94</text>
+    <rect x="70" y="40" width="192.0" height="15" fill="#6bcf7f" rx="5"/>
+    <text x="280" y="50" font-size="11" fill="#666" font-family='"Courier New", Courier, monospace'>96</text>
     
     <!-- Energy Bar -->
     <text x="0" y="75" font-size="12" fill="#333" font-family='"Courier New", Courier, monospace'>Energy:</text>
@@ -63,7 +63,7 @@
   </g>
   <g id="github-profile-summary">
     <line x1="50" y1="315" x2="350" y2="315" stroke="#d4d4d4" stroke-width="1"/>
-    <text x="200" y="333" text-anchor="middle" font-size="11" fill="#666" font-family='"Courier New", Courier, monospace'>365d: 1.0k contributions | 240 active days</text>
-    <text x="200" y="347" text-anchor="middle" font-size="10" fill="#888" font-family='"Courier New", Courier, monospace'>COM 893 | PR 144 | REV 5 | LANG 8</text>
+    <text x="200" y="333" text-anchor="middle" font-size="11" fill="#666" font-family='"Courier New", Courier, monospace'>365d: 1.1k contributions | 241 active days</text>
+    <text x="200" y="347" text-anchor="middle" font-size="10" fill="#888" font-family='"Courier New", Courier, monospace'>COM 896 | PR 146 | REV 5 | LANG 8</text>
   </g>
 </svg>
