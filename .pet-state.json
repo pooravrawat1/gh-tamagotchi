@@ -3,10 +3,10 @@
   "hunger": 100,
   "happiness": 100,
   "health": 100,
-  "energy": 100,
+  "energy": 98,
   "level": 7,
-  "xp": 758,
+  "xp": 757,
   "stage": "teen",
   "last_commit_reward_date": "2026-08-30",
-  "last_updated": "2026-09-28T22:40:52.894888"
+  "last_updated": "2026-09-29T02:57:22.679886"
 }
