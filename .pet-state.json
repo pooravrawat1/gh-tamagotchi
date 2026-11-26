@@ -1,12 +1,12 @@
 {
   "username": "pooravrawat1",
-  "hunger": 92,
+  "hunger": 74,
   "happiness": 100,
   "health": 96,
-  "energy": 96,
+  "energy": 85,
   "level": 7,
   "xp": 769,
   "stage": "teen",
   "last_commit_reward_date": "2026-08-30",
-  "last_updated": "2026-11-25T16:17:47.763136"
+  "last_updated": "2026-11-26T01:13:27.289664"
 }
